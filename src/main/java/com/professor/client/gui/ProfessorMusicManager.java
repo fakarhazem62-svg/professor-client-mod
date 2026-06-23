@@ -5,25 +5,39 @@ import net.minecraft.client.sound.AbstractSoundInstance;
 import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.random.Random;
 
 /**
- * Manages background music for Professor Client screens.
+ * ═══════════════════════════════════════════════════════════════════
+ *  Professor Client — Music Manager
+ * ═══════════════════════════════════════════════════════════════════
  *
- * Default: plays Pigstep (the most hype disc in Minecraft) on loop.
+ *  HOW TO ADD CUSTOM MUSIC (the YouTube song):
+ *  ──────────────────────────────────────────
+ *  1. Download the audio using: https://yt1s.com  or  https://y2mate.com
+ *     Paste: https://youtu.be/5qm8PH4xAss
  *
- * To add CUSTOM music:
- *   1. Convert your audio to OGG format (use convertio.co or ffmpeg)
- *   2. Place the file at:
- *      src/main/resources/assets/professorclient/sounds/music/theme.ogg
- *   3. Create src/main/resources/assets/professorclient/sounds.json:
- *      {
- *        "music.theme": {
- *          "sounds": [{ "name": "professorclient:music/theme", "stream": true }]
- *        }
- *      }
- *   4. Replace the sound in LoopingMusic() with:
- *      super(net.minecraft.util.Identifier.of("professorclient","music.theme"), ...)
+ *  2. Convert to OGG format (required by Minecraft):
+ *     Use: https://convertio.co/mp3-ogg/
+ *     OR with ffmpeg: ffmpeg -i input.mp3 -c:a libvorbis output.ogg
+ *
+ *  3. Place the OGG file at:
+ *     src/main/resources/assets/professorclient/sounds/music/theme.ogg
+ *
+ *  4. Create the file sounds.json at:
+ *     src/main/resources/assets/professorclient/sounds.json
+ *     With this content:
+ *     {
+ *       "music.theme": {
+ *         "sounds": [{ "name": "professorclient:music/theme", "stream": true }]
+ *       }
+ *     }
+ *
+ *  5. In the LoopingMusic class below, UNCOMMENT the custom line
+ *     and COMMENT OUT the Pigstep line.
+ *
+ * ═══════════════════════════════════════════════════════════════════
  */
 public class ProfessorMusicManager {
 
@@ -46,7 +60,7 @@ public class ProfessorMusicManager {
         }
     }
 
-    /** Returns 0.0-1.0 progress for the visual music bar (4-minute loop). */
+    /** Returns 0.0–1.0 for the visual music bar (4-minute virtual loop). */
     public static float getVisualProgress() {
         if (startMs < 0) return 0f;
         long elapsed = System.currentTimeMillis() - startMs;
@@ -58,13 +72,20 @@ public class ProfessorMusicManager {
         return current != null && client.getSoundManager().isPlaying(current);
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  Sound instance — swap between Pigstep and custom OGG here
+    // ─────────────────────────────────────────────────────────────────────
     private static class LoopingMusic extends AbstractSoundInstance {
         LoopingMusic() {
-            // Using PIGSTEP — most hype/epic Minecraft music disc
+            // ── Option A: Pigstep (default, no extra files needed) ──────────
             super(SoundEvents.MUSIC_DISC_PIGSTEP.value().getId(), SoundCategory.RECORDS, Random.create());
+
+            // ── Option B: Custom OGG (uncomment after adding theme.ogg) ────
+            // super(Identifier.of("professorclient", "music.theme"), SoundCategory.RECORDS, Random.create());
+
             this.repeat          = true;
             this.repeatDelay     = 0;
-            this.volume          = 0.40f;
+            this.volume          = 0.45f;
             this.pitch           = 1.0f;
             this.x = 0; this.y = 0; this.z = 0;
             this.attenuationType = SoundInstance.AttenuationType.NONE;
