@@ -4,7 +4,8 @@
   "package": "com.professor.client.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "AllScreensMixin"
   ],
   "injectors": {
     "defaultRequire": 1
