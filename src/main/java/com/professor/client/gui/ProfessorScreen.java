@@ -403,14 +403,14 @@ public class ProfessorScreen extends Screen {
         ctx.drawText(textRenderer,t2,tx+tw1,ty,withA(TITLE2,tA),false);
 
         // Version badge
-        String ver="v4.0";
+        String ver="v1";
         ctx.drawText(textRenderer,ver,bpx+PW-textRenderer.getWidth(ver)-8,bpy+9,withA(CRYSTAL,(int)(160+60*glow)),false);
 
         // Subtitle / player info
         String sub; int subCol=CRYSTAL;
         if(client!=null&&client.player!=null){
             var p=client.player;
-            sub=String.format("X:%.1f  Y:%.1f  Z:%.1f  ❄  HP:%.1f  ❄  Proxies:%d",p.getX(),p.getY(),p.getZ(),p.getHealth(),(float)ProxyManager.count());
+            sub=String.format("X:%.1f  Y:%.1f  Z:%.1f  ❄  HP:%.1f  ❄  Proxies:%d",p.getX(),p.getY(),p.getZ(),p.getHealth(),ProxyManager.count());
         } else {
             sub="❄  Frost Engine  ·  "+ProfessorClientMod.VERSION+"  ·  1.21.1  ❄";
         }
