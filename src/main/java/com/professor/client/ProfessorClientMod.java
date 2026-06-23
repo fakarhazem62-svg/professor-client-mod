@@ -2,11 +2,9 @@ package com.professor.client;
 
 import com.professor.client.gui.ProfessorMusicManager;
 import com.professor.client.gui.ProfessorScreen;
-import com.professor.client.gui.ProfessorSplashScreen;
 import com.professor.client.proxy.ProxyManager;
 import com.professor.client.task.BackgroundTaskManager;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -16,6 +14,7 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.network.packet.Packet;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
@@ -24,28 +23,24 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class ProfessorClientMod implements ClientModInitializer {
 
     public static KeyBinding openGuiKey;
+    public static KeyBinding proxyKey;
+
     public static final String MOD_ID      = "professorclient";
     public static final String CLIENT_NAME = "Xerion Client";
     public static final String VERSION     = "v4.0";
 
-    // ── Timed packet queue (ExploitFixer bypass) ──────────────────────────
+    // ── Timed packet queue ─────────────────────────────────────────────────
     public static final ConcurrentLinkedQueue<Packet<?>> PACKET_QUEUE = new ConcurrentLinkedQueue<>();
     public static volatile int     PACKETS_PER_TICK   = 100;
-    public static volatile boolean BG_MODE_ACTIVE      = false;
 
-    // Swing rate limiter (ExploitFixer: 100ms cooldown)
-    private static long    lastSwingMs     = 0;
-    public  static volatile int SWING_COOLDOWN_MS = 105;
+    // Swing rate limiter
+    private static long lastSwingMs = 0;
+    public static volatile int SWING_COOLDOWN_MS = 105;
 
     @Override
     public void onInitializeClient() {
 
-        // Splash screen on startup
-        ClientLifecycleEvents.CLIENT_STARTED.register(client ->
-            client.execute(() -> client.setScreen(new ProfessorSplashScreen()))
-        );
-
-        // Keybinding: M → open GUI
+        // ── Key: M → open Client GUI ───────────────────────────────────────
         openGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.professorclient.open_gui",
             InputUtil.Type.KEYSYM,
@@ -53,26 +48,54 @@ public class ProfessorClientMod implements ClientModInitializer {
             "category.professorclient.general"
         ));
 
+        // ── Key: V → toggle proxy (background, NO screen change) ──────────
+        proxyKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.professorclient.proxy_toggle",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_V,
+            "category.professorclient.general"
+        ));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            // Open GUI
+
+            // M key → open ProfessorScreen directly, no loading screen
             while (openGuiKey.wasPressed()) {
                 if (client.player != null) {
-                    playSound(client, "hello_friend");
+                    playClickSound(client);
                     client.setScreen(new ProfessorScreen());
                 }
             }
 
-            // Drain packet queue (rate-limited)
+            // V key → toggle proxy in background (NO screen opened)
+            while (proxyKey.wasPressed()) {
+                if (client.player != null) {
+                    boolean nowEnabled = !ProxyManager.isEnabled();
+                    ProxyManager.setEnabled(nowEnabled);
+                    String msg;
+                    if (nowEnabled && ProxyManager.count() > 0) {
+                        msg = "§b❄ §fProxy §aON §7— §b" + ProxyManager.aliveCount()
+                            + "§7/§b" + ProxyManager.count() + " §7proxies active";
+                    } else if (nowEnabled) {
+                        msg = "§b❄ §fProxy §aON §7— §cadd proxies via the §bM §cmenu";
+                    } else {
+                        msg = "§b❄ §fProxy §cOFF";
+                    }
+                    // Show as action bar (above hotbar) — no screen change
+                    client.player.sendMessage(Text.literal(msg), true);
+                }
+            }
+
+            // Drain packet queue (rate-limited, on main thread)
             if (!PACKET_QUEUE.isEmpty() && client.getNetworkHandler() != null) {
                 int sent = 0;
                 while (!PACKET_QUEUE.isEmpty() && sent < PACKETS_PER_TICK) {
                     Packet<?> pkt = PACKET_QUEUE.poll();
                     if (pkt != null) {
-                        try { client.getNetworkHandler().sendPacket(pkt); } catch (Exception ignored) {}
+                        try { client.getNetworkHandler().sendPacket(pkt); }
+                        catch (Exception ignored) {}
                         sent++;
                     }
                 }
-                // Report progress to background task manager
                 BackgroundTaskManager.setPacketProgress(
                     BackgroundTaskManager.getPacketsSent() + sent,
                     BackgroundTaskManager.getPacketsTotal()
