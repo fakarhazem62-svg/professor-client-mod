@@ -27,7 +27,7 @@ public class ProfessorClientMod implements ClientModInitializer {
 
     public static final String MOD_ID      = "professorclient";
     public static final String CLIENT_NAME = "Xerion Client";
-    public static final String VERSION     = "v4.0";
+    public static final String VERSION     = "v1";
 
     // ── Timed packet queue ─────────────────────────────────────────────────
     public static final ConcurrentLinkedQueue<Packet<?>> PACKET_QUEUE = new ConcurrentLinkedQueue<>();
