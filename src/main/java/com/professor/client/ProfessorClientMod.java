@@ -1,13 +1,17 @@
 package com.professor.client;
 
 import com.professor.client.gui.KeyActivationScreen;
+import com.professor.client.gui.ProfessorMusicManager;
 import com.professor.client.gui.ProfessorSplashScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
@@ -20,11 +24,9 @@ public class ProfessorClientMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
-            client.execute(() -> {
-                playSound(client, "hello_friend");
-                client.setScreen(new ProfessorSplashScreen());
-            });
+            client.execute(() -> client.setScreen(new ProfessorSplashScreen()));
         });
 
         openGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -36,7 +38,16 @@ public class ProfessorClientMod implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openGuiKey.wasPressed()) {
-                if (client.player != null) client.setScreen(new KeyActivationScreen());
+                if (client.player != null) {
+                    playSound(client, "hello_friend");
+                    client.setScreen(new KeyActivationScreen());
+                }
+            }
+        });
+
+        ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
+            if (screen instanceof TitleScreen) {
+                ProfessorMusicManager.playOnTitleScreen(client);
             }
         });
     }
@@ -47,7 +58,18 @@ public class ProfessorClientMod implements ClientModInitializer {
             var id  = Identifier.of(MOD_ID, name);
             if (reg.containsId(id)) {
                 client.getSoundManager().play(
-                    net.minecraft.client.sound.PositionedSoundInstance.master(reg.get(id), 1f, 1f));
+                    PositionedSoundInstance.master(reg.get(id), 1f, 1f));
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public static void playClickSound(MinecraftClient client) {
+        try {
+            var reg = net.minecraft.registry.Registries.SOUND_EVENT;
+            var id  = Identifier.of("minecraft", "block.note_block.pling");
+            if (reg.containsId(id)) {
+                client.getSoundManager().play(
+                    PositionedSoundInstance.master(reg.get(id), 1.8f, 0.45f));
             }
         } catch (Exception ignored) {}
     }
