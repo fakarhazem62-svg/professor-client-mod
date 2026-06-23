@@ -7,44 +7,57 @@ import net.minecraft.util.Identifier;
 
 public class ProfessorMusicManager {
 
-    private static SoundInstance currentMusic  = null;
-    private static boolean       playingState  = false;
-    private static float         visualProgress = 0f;
+    private static SoundInstance currentMusic = null;
+    private static long   musicStartMs = 0;
+    private static boolean playing     = false;
 
-    private static final Identifier MUSIC_RAP =
-            Identifier.of("professorclient", "music.rap");
-    private static final Identifier MUSIC_THEME =
-            Identifier.of("professorclient", "music.theme");
+    // Silhouette drop zones in ticks (1 tick = 50ms)
+    // Intro 0-280, Verse 280-1000, Chorus 1000-1640, Bridge 1640-2200, Chorus2 2200-2800
+    private static final int[][] HYPE_ZONES = {{1000,1640},{2200,2800}};
 
     public static void onOpen(MinecraftClient client) {
-        if (playingState || client == null) return;
+        if (client == null || playing) return;
         try {
-            var reg   = net.minecraft.registry.Registries.SOUND_EVENT;
-            var event = reg.containsId(MUSIC_RAP) ? reg.get(MUSIC_RAP)
-                      : reg.containsId(MUSIC_THEME) ? reg.get(MUSIC_THEME) : null;
-            if (event != null) {
-                currentMusic = PositionedSoundInstance.master(event, 0.85f, 1.0f);
-                client.getSoundManager().play(currentMusic);
-                playingState   = true;
-                visualProgress = 0f;
-            }
+            var id  = Identifier.of("professorclient", "music.silhouette");
+            var reg = net.minecraft.registry.Registries.SOUND_EVENT;
+            if (!reg.containsId(id)) return;
+            currentMusic = PositionedSoundInstance.master(reg.get(id), 1f, 0.85f);
+            client.getSoundManager().play(currentMusic);
+            musicStartMs = System.currentTimeMillis();
+            playing = true;
         } catch (Exception ignored) {}
     }
 
     public static void onClose(MinecraftClient client) {
-        if (!playingState || client == null || currentMusic == null) return;
+        if (client == null || currentMusic == null) return;
         try { client.getSoundManager().stop(currentMusic); } catch (Exception ignored) {}
-        currentMusic   = null;
-        playingState   = false;
-        visualProgress = 0f;
+        currentMusic = null;
+        playing = false;
     }
 
-    /** Used by ProfessorScreen's music bar. */
-    public static boolean isPlaying(MinecraftClient client) { return playingState; }
+    public static boolean isPlaying(MinecraftClient client) { return playing; }
 
-    /** Fake visual progress that loops 0→1 while music plays. */
+    public static int getMusicTicks() {
+        return playing ? (int)((System.currentTimeMillis() - musicStartMs) / 50L) : 0;
+    }
+
+    /** 0 = calm, 1 = full drop/hype (chorus) */
+    public static float getHypeLevel() {
+        if (!playing) return 0f;
+        int t = getMusicTicks();
+        for (int[] z : HYPE_ZONES) {
+            if (t >= z[0] && t < z[1]) {
+                float rel = (float)(t - z[0]) / (z[1] - z[0]);
+                if      (rel < 0.2f) return rel * 5f;
+                else if (rel > 0.8f) return (1f - rel) * 5f;
+                else                 return 1f;
+            }
+        }
+        if (t >= 280 && t < 1000) return 0.3f;
+        return 0f;
+    }
+
     public static float getVisualProgress() {
-        if (playingState) visualProgress = (visualProgress + 0.0008f) % 1f;
-        return visualProgress;
+        return playing ? Math.min(1f, getMusicTicks() / 3200f) : 0f;
     }
 }
