@@ -1,7 +1,9 @@
 package com.professor.client;
 
 import com.professor.client.gui.ProfessorScreen;
+import com.professor.client.gui.ProfessorSplashScreen;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
@@ -16,6 +18,11 @@ public class ProfessorClientMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        // Show splash screen on game start
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+            client.execute(() -> client.setScreen(new ProfessorSplashScreen()));
+        });
+
         openGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.professorclient.open_gui",
                 InputUtil.Type.KEYSYM,
