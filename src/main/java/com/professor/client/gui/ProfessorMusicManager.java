@@ -9,24 +9,24 @@ import net.minecraft.util.math.random.Random;
 
 /**
  * Manages background music for Professor Client screens.
- * Remembers the elapsed position so reopening the screen "resumes" from where it left off.
+ * Uses Pigstep (the hype disc) as the epic background track.
+ * To use CUSTOM music: add your OGG file to
+ *   src/main/resources/assets/professorclient/sounds/music/theme.ogg
+ * and update LoopingMusic() to reference it.
  */
 public class ProfessorMusicManager {
 
-    private static SoundInstance current   = null;
-    private static long          startMs   = -1;  // System.currentTimeMillis() when music began
-    private static long          pausedMs  = 0;   // How many ms had elapsed when paused
+    private static SoundInstance current  = null;
+    private static long          startMs  = -1;
+    private static long          pausedMs = 0;
 
-    /** Call when the Professor screen is opened. */
     public static void onOpen(MinecraftClient client) {
         if (current != null && client.getSoundManager().isPlaying(current)) return;
-        // Create a looping instance of the menu music
         current = new LoopingMusic();
         client.getSoundManager().play(current);
         startMs = System.currentTimeMillis() - pausedMs;
     }
 
-    /** Call when the Professor screen is closed (removed). */
     public static void onClose(MinecraftClient client) {
         if (current != null) {
             pausedMs = System.currentTimeMillis() - startMs;
@@ -35,11 +35,10 @@ public class ProfessorMusicManager {
         }
     }
 
-    /** Returns 0-1 progress through a virtual 4-minute track, for UI display. */
     public static float getVisualProgress() {
         if (startMs < 0) return 0f;
         long elapsed = System.currentTimeMillis() - startMs;
-        long totalMs = 4L * 60 * 1000; // 4-minute loop
+        long totalMs = 4L * 60 * 1000; // 4-minute visual loop
         return (float)(elapsed % totalMs) / totalMs;
     }
 
@@ -47,17 +46,20 @@ public class ProfessorMusicManager {
         return current != null && client.getSoundManager().isPlaying(current);
     }
 
-    // ── Looping music sound instance ───────────────────────────────────────
-
+    // ── Looping music ─────────────────────────────────────────────────────
+    // Using PIGSTEP — the most epic/hype disc in Minecraft.
+    // Replace SoundEvents.MUSIC_DISC_PIGSTEP.value().getId() with your custom
+    // sound identifier (e.g. Identifier.of("professorclient","music.theme"))
+    // if you add a custom OGG file.
     private static class LoopingMusic extends AbstractSoundInstance {
         LoopingMusic() {
-            super(SoundEvents.MUSIC_MENU.value().getId(), SoundCategory.MUSIC, Random.create());
-            this.repeat      = true;
-            this.repeatDelay = 0;
-            this.volume      = 0.35f;
-            this.pitch       = 1.0f;
+            super(SoundEvents.MUSIC_DISC_PIGSTEP.value().getId(), SoundCategory.RECORDS, Random.create());
+            this.repeat           = true;
+            this.repeatDelay      = 0;
+            this.volume           = 0.40f;
+            this.pitch            = 1.0f;
             this.x = 0; this.y = 0; this.z = 0;
-            this.attenuationType = SoundInstance.AttenuationType.NONE;
+            this.attenuationType  = SoundInstance.AttenuationType.NONE;
         }
     }
 }
