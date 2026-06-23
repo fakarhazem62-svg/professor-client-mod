@@ -9,8 +9,6 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.network.packet.c2s.play.*;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 
 import java.util.LinkedList;
@@ -349,13 +347,13 @@ public class ProfessorScreen extends Screen {
     private void doChat() {
         if(client==null||client.getNetworkHandler()==null||chatField==null)return;
         String msg=chatField.getText(); int n=parsePkt();
-        for(int i=0;i<n;i++) client.getNetworkHandler().sendPacket(new ChatMessageC2SPacket(msg,System.currentTimeMillis()));
+        for(int i=0;i<n;i++) client.getNetworkHandler().sendChatMessage(msg);
         flash("Chat spam: "+n+" messages",C_BLUE|0xFF000000);
     }
     private void doCommand() {
         if(client==null||client.getNetworkHandler()==null||chatField==null)return;
         String cmd=chatField.getText().startsWith("/")?chatField.getText().substring(1):chatField.getText();
-        client.getNetworkHandler().sendPacket(new CommandExecutionC2SPacket(cmd));
+        client.getNetworkHandler().sendCommand(cmd);
         flash("Command sent: /"+cmd,C_BLUE|0xFF000000);
     }
 
