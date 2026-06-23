@@ -3,7 +3,7 @@
   "id": "professorclient",
   "version": "${version}",
   "name": "Xerion Client",
-  "description": "Xerion Client — Advanced Minecraft Utility Client",
+  "description": "Xerion Client v4 — Advanced Minecraft Utility Client (Frost Edition)",
   "authors": ["Xerion Client"],
   "license": "MIT",
   "environment": "client",
@@ -12,6 +12,9 @@
       "com.professor.client.ProfessorClientMod"
     ]
   },
+  "mixins": [
+    "professorclient.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.14.0",
     "minecraft": "1.21.x",
