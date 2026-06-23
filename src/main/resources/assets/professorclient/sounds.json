@@ -1,10 +1,19 @@
 {
+  "hello_friend": {
+    "sounds": [
+      {
+        "name": "professorclient:hello_friend",
+        "stream": false,
+        "volume": 1.0
+      }
+    ]
+  },
   "music.theme": {
     "sounds": [
       {
         "name": "professorclient:music/theme",
         "stream": true,
-        "volume": 1.0
+        "volume": 0.85
       }
     ]
   },
