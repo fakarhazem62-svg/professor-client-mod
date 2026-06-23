@@ -1,29 +1,11 @@
 {
   "hello_friend": {
-    "sounds": [
-      {
-        "name": "professorclient:hello_friend",
-        "stream": false,
-        "volume": 1.0
-      }
-    ]
+    "sounds": [{ "name": "professorclient:hello_friend", "stream": false, "volume": 1.0 }]
+  },
+  "music.silhouette": {
+    "sounds": [{ "name": "professorclient:music/silhouette", "stream": true, "volume": 0.9 }]
   },
   "music.theme": {
-    "sounds": [
-      {
-        "name": "professorclient:music/theme",
-        "stream": true,
-        "volume": 0.85
-      }
-    ]
-  },
-  "music.rap": {
-    "sounds": [
-      {
-        "name": "professorclient:music/rap",
-        "stream": true,
-        "volume": 0.85
-      }
-    ]
+    "sounds": [{ "name": "professorclient:music/theme", "stream": true, "volume": 0.8 }]
   }
 }
