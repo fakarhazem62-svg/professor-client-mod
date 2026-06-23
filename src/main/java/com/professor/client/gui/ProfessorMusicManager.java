@@ -51,7 +51,7 @@ public class ProfessorMusicManager {
 
     private static class LoopingMusic extends AbstractSoundInstance {
         LoopingMusic() {
-            super(SoundEvents.MUSIC_MENU.getId(), SoundCategory.MUSIC, Random.create());
+            super(SoundEvents.MUSIC_MENU.value().getId(), SoundCategory.MUSIC, Random.create());
             this.repeat      = true;
             this.repeatDelay = 0;
             this.volume      = 0.35f;
