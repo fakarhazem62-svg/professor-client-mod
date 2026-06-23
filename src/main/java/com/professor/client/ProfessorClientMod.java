@@ -6,36 +6,49 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public class ProfessorClientMod implements ClientModInitializer {
 
     public static KeyBinding openGuiKey;
+    public static final String MOD_ID = "professorclient";
+    public static final String CLIENT_NAME = "Xerion Client";
 
     @Override
     public void onInitializeClient() {
-        // Show splash screen on game start
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
-            client.execute(() -> client.setScreen(new ProfessorSplashScreen()));
+            client.execute(() -> {
+                playSound(client, "hello_friend");
+                client.setScreen(new ProfessorSplashScreen());
+            });
         });
 
-        // Keybinding: default P key (changed from M to avoid conflicts)
         openGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.professorclient.open_gui",
                 InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_P,
+                GLFW.GLFW_KEY_M,
                 "category.professorclient.general"
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openGuiKey.wasPressed()) {
-                if (client.player != null) {
-                    // Show the activation/loading screen first
-                    client.setScreen(new KeyActivationScreen());
-                }
+                if (client.player != null) client.setScreen(new KeyActivationScreen());
             }
         });
+    }
+
+    public static void playSound(MinecraftClient client, String name) {
+        try {
+            var reg = net.minecraft.registry.Registries.SOUND_EVENT;
+            var id  = Identifier.of(MOD_ID, name);
+            if (reg.containsId(id)) {
+                client.getSoundManager().play(
+                    net.minecraft.client.sound.PositionedSoundInstance.master(reg.get(id), 1f, 1f));
+            }
+        } catch (Exception ignored) {}
     }
 }
