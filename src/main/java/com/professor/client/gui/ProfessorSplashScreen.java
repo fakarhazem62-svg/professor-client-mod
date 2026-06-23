@@ -8,380 +8,335 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 @Environment(EnvType.CLIENT)
 public class ProfessorSplashScreen extends Screen {
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  ICE PALETTE  — all fully opaque for visibility
+    // ══════════════════════════════════════════════════════════════════════
+    private static final int BG       = 0xFF010A14;   // deep midnight navy
+    private static final int PANEL_BG = 0xFF041828;   // solid dark ice
+    private static final int BORDER   = 0xFFAAEEFF;   // bright ice blue (solid)
+    private static final int BORDER2  = 0xFF55CCFF;   // secondary border
+    private static final int TITLE1   = 0xFFEEF8FF;   // snow white text
+    private static final int TITLE2   = 0xFFFFD700;   // gold accent
+    private static final int TXT_ICE  = 0xFF88DDFF;   // ice blue text
+    private static final int TXT_DIM  = 0xFF4488AA;   // dim ice text
+    private static final int SNOW_A   = 0xFFFFFFFF;   // pure white snow
+    private static final int SNOW_B   = 0xFFCCEEFF;   // light blue snow
+    private static final int GRID_C   = 0xFF0A2A44;   // grid line color
+    private static final int GOLD     = 0xFFFFD700;
+    private static final int CRYSTAL  = 0xFF00CCEE;
+
     private static final Random RNG = new Random();
 
-    private int     tickCount    = 0;
+    // Progress / state
     private float   loadProgress = 0f;
-    private int     messageIndex = 0;
+    private int     msgIdx       = 0;
     private boolean done         = false;
     private int     doneTimer    = 0;
-    private float   fadeAlpha    = 0f;
-    private boolean fadingIn     = true;
+    private float   fadeIn       = 0f;
     private float   fadeOut      = 0f;
-    private float   glowPulse    = 0f;
+    private int     tick         = 0;
+    private float   glow         = 0f;
     private boolean glowUp       = true;
-    private float   scanLine     = 0f;
-    private float   scanLine2    = 0f;
 
-    // particles [x,y,vx,vy,size,alpha,phase,colorType]
-    private final List<float[]> particles   = new ArrayList<>();
-    // data streams [x,y,speed,char]
-    private final List<float[]> dataStreams = new ArrayList<>();
-    // rings [cx,cy,radius,speed,alpha,colorType]
-    private final List<float[]> rings       = new ArrayList<>();
-    // orbs [x,y,vx,vy,size,alpha,phase,colorType]
-    private final List<float[]> orbs        = new ArrayList<>();
+    // Snow particles  [x, y, speed, size, alpha, drift-phase]
+    private static final int SNOW_COUNT = 220;
+    private final float[] sx  = new float[SNOW_COUNT];
+    private final float[] sy  = new float[SNOW_COUNT];
+    private final float[] ssp = new float[SNOW_COUNT];
+    private final float[] ssz = new float[SNOW_COUNT];
+    private final float[] sal = new float[SNOW_COUNT];
+    private final float[] sph = new float[SNOW_COUNT];
+
+    // Sparkle glitter  [x, y, phase, size]
+    private static final int SPARK_COUNT = 60;
+    private final float[] gpx = new float[SPARK_COUNT];
+    private final float[] gpy = new float[SPARK_COUNT];
+    private final float[] gpp = new float[SPARK_COUNT];
+    private final float[] gps = new float[SPARK_COUNT];
+
+    // Data-stream columns  [x, y, speed, char]
+    private static final int COL_COUNT = 50;
+    private final float[] cx2 = new float[COL_COUNT];
+    private final float[] cy2 = new float[COL_COUNT];
+    private final float[] csp = new float[COL_COUNT];
+    private final int[]   cch = new int[COL_COUNT];
+    private static final String CHARS = "XERION01FROST10BYPASS00ICE";
 
     private static final String[] MESSAGES = {
-        "Initializing Professor Client...",
-        "Loading exploit modules...",
+        "Initializing Xerion Client...",
+        "Loading frost modules...",
         "Bypassing anti-cheat systems...",
         "Injecting packet hooks...",
-        "Loading GUI components...",
-        "Calibrating bypass patterns...",
-        "All systems ready.  Welcome, Professor."
+        "Calibrating ice engine...",
+        "Applying bypass patterns...",
+        "❄  All systems ready.  Welcome, operator.  ❄"
     };
 
-    private static final String CHARS = "PROFESSOR01AKASATANA10110100";
-
-    public ProfessorSplashScreen() {
-        super(Text.literal("Professor Client"));
-    }
-
-    @Override protected void init() {
-        initParticles();
-        initDataStreams();
-        initRings();
-        initOrbs();
-    }
+    public ProfessorSplashScreen() { super(Text.literal("Xerion Client")); }
 
     @Override public boolean shouldCloseOnEsc() { return false; }
     @Override public boolean shouldPause()      { return false; }
 
-    // ─────────────────────────────────────────────────────────────────────
-
-    private void initParticles() {
-        particles.clear();
-        for (int i = 0; i < 300; i++) {
-            particles.add(new float[]{
-                RNG.nextFloat() * width,
-                RNG.nextFloat() * height,
-                (RNG.nextFloat() - 0.5f) * 0.65f,
-                -(RNG.nextFloat() * 0.8f + 0.1f),
-                RNG.nextFloat() * 3f + 0.5f,
-                RNG.nextFloat() * 0.9f + 0.1f,
-                RNG.nextFloat() * 6.28f,
-                RNG.nextInt(5) // 0=cyan 1=purple 2=gold 3=red 4=green
-            });
+    @Override
+    protected void init() {
+        int W = width, H = height;
+        for (int i = 0; i < SNOW_COUNT; i++) {
+            sx[i]  = RNG.nextFloat() * W;
+            sy[i]  = RNG.nextFloat() * H;
+            ssp[i] = RNG.nextFloat() * 0.8f + 0.25f;
+            ssz[i] = RNG.nextFloat() * 4f + 1f;
+            sal[i] = RNG.nextFloat() * 0.7f + 0.3f;
+            sph[i] = RNG.nextFloat() * 6.28f;
+        }
+        for (int i = 0; i < SPARK_COUNT; i++) {
+            gpx[i] = RNG.nextFloat() * W;
+            gpy[i] = RNG.nextFloat() * H;
+            gpp[i] = RNG.nextFloat() * 6.28f;
+            gps[i] = RNG.nextFloat() * 3f + 1f;
+        }
+        int cols = Math.max(1, W / 16);
+        for (int i = 0; i < Math.min(COL_COUNT, cols); i++) {
+            cx2[i] = i * (W / (float)Math.min(COL_COUNT, cols)) + 8;
+            cy2[i] = RNG.nextFloat() * -H;
+            csp[i] = RNG.nextFloat() * 1.2f + 0.3f;
+            cch[i] = RNG.nextInt(CHARS.length());
         }
     }
-
-    private void initDataStreams() {
-        dataStreams.clear();
-        int cols = Math.max(1, width / 14);
-        for (int i = 0; i < cols; i++) {
-            dataStreams.add(new float[]{
-                i * 14 + 7f,
-                RNG.nextFloat() * -height,
-                RNG.nextFloat() * 1.5f + 0.4f,
-                RNG.nextInt(CHARS.length())
-            });
-        }
-    }
-
-    private void initRings() {
-        rings.clear();
-        for (int i = 0; i < 10; i++) {
-            rings.add(new float[]{
-                width * 0.5f, height * 0.5f,
-                i * 55f + 10f,
-                0.3f + i * 0.07f,
-                0.5f + RNG.nextFloat() * 0.4f,
-                i % 3
-            });
-        }
-    }
-
-    private void initOrbs() {
-        orbs.clear();
-        for (int i = 0; i < 16; i++) {
-            orbs.add(new float[]{
-                RNG.nextFloat() * width,  RNG.nextFloat() * height,
-                (RNG.nextFloat() - 0.5f) * 0.3f, (RNG.nextFloat() - 0.5f) * 0.3f,
-                RNG.nextFloat() * 70f + 20f,
-                RNG.nextFloat() * 0.4f + 0.2f,
-                RNG.nextFloat() * 6.28f,
-                RNG.nextInt(3)
-            });
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public void tick() {
-        tickCount++;
-
-        if (fadingIn) { fadeAlpha = Math.min(1f, fadeAlpha + 0.055f); if (fadeAlpha >= 1f) fadingIn = false; }
+        tick++;
+        fadeIn = Math.min(1f, fadeIn + 0.06f);
 
         if (loadProgress < 100f) {
-            float speed = loadProgress < 30 ? 0.55f : loadProgress < 70 ? 0.38f : 0.26f;
-            loadProgress = Math.min(loadProgress + speed, 100f);
-            messageIndex = Math.min((int)(loadProgress / 100f * (MESSAGES.length - 1)), MESSAGES.length - 1);
+            float spd = loadProgress < 30 ? 0.5f : loadProgress < 70 ? 0.35f : 0.22f;
+            loadProgress = Math.min(100f, loadProgress + spd);
+            msgIdx = Math.min(MESSAGES.length - 1, (int)(loadProgress / 100f * MESSAGES.length));
         } else if (!done) { done = true; }
 
         if (done) {
             doneTimer++;
-            if (doneTimer > 65) {
-                fadeOut = Math.min(1f, fadeOut + 0.042f);
+            if (doneTimer > 55) {
+                fadeOut = Math.min(1f, fadeOut + 0.038f);
                 if (fadeOut >= 1f) MinecraftClient.getInstance().setScreen(null);
             }
         }
 
-        glowPulse += glowUp ? 0.032f : -0.032f;
-        if      (glowPulse >= 1f) { glowPulse = 1f; glowUp = false; }
-        else if (glowPulse <= 0f) { glowPulse = 0f; glowUp = true; }
+        glow += glowUp ? 0.032f : -0.032f;
+        if (glow >= 1f) { glow = 1f; glowUp = false; }
+        else if (glow <= 0f) { glow = 0f; glowUp = true; }
 
-        scanLine  = (scanLine  + 2.5f) % height;
-        scanLine2 = (scanLine2 + 1.4f) % height;
-
-        for (float[] p : particles) {
-            p[0] += p[2]; p[1] += p[3]; p[6] += 0.048f;
-            if (p[1] < -10) { p[1] = height + 5; p[0] = RNG.nextFloat() * width; }
-            if (p[0] < 0)   p[0] = width;
-            if (p[0] > width) p[0] = 0;
+        float drift = tick * 0.012f;
+        for (int i = 0; i < SNOW_COUNT; i++) {
+            sy[i] += ssp[i];
+            sx[i] += (float)Math.sin(drift + sph[i]) * 0.45f;
+            sph[i] += 0.008f;
+            if (sy[i] > height + 6) { sy[i] = -6; sx[i] = RNG.nextFloat() * width; }
+            if (sx[i] < -6)  sx[i] = width + 5;
+            if (sx[i] > width + 5) sx[i] = -6;
         }
-
-        for (float[] d : dataStreams) {
-            d[1] += d[2];
-            if (d[1] > height + 20) { d[1] = -24; d[3] = RNG.nextInt(CHARS.length()); }
-            if (RNG.nextInt(20) == 0) d[3] = RNG.nextInt(CHARS.length());
-        }
-
-        for (float[] r : rings) { r[2] = (r[2] + r[3]) % (Math.max(width, height) * 0.9f); }
-
-        for (float[] o : orbs) {
-            o[0] += o[2]; o[1] += o[3]; o[6] += 0.025f;
-            if (o[0] < 0 || o[0] > width)  o[2] = -o[2];
-            if (o[1] < 0 || o[1] > height) o[3] = -o[3];
+        for (int i = 0; i < SPARK_COUNT; i++) gpp[i] += 0.055f;
+        for (int i = 0; i < COL_COUNT; i++) {
+            cy2[i] += csp[i];
+            if (cy2[i] > height + 20) { cy2[i] = -20; cch[i] = RNG.nextInt(CHARS.length()); }
+            if (RNG.nextInt(22) == 0)  cch[i] = RNG.nextInt(CHARS.length());
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        float screenFade = (1f - fadeOut) * fadeAlpha;
-        int sa = (int)(screenFade * 255);
+        float fade = fadeIn * (1f - fadeOut);
+        int sa = (int)(fade * 255);
         if (sa <= 0) return;
 
-        int W = width, H = height, cx = W / 2, cy = H / 2;
+        int W = width, H = height, pcx = W / 2, pcy = H / 2;
 
-        // BG #050508
-        ctx.fill(0, 0, W, H, alphaBlend(0xFF050508, sa));
+        // ── BACKGROUND ────────────────────────────────────────────────────
+        ctx.fill(0, 0, W, H, BG);
 
-        drawGrid(ctx, W, H, sa);
-        drawOrbs(ctx, sa);
-        drawRings(ctx, cx, cy, sa);
-        drawDataStreams(ctx, sa);
-        drawParticles(ctx, sa);
+        // Grid (subtle)
+        for (int x = 0; x < W; x += 44) ctx.fill(x, 0, x + 1, H, fade(GRID_C, sa));
+        for (int y = 0; y < H; y += 44) ctx.fill(0, y, W, y + 1, fade(GRID_C, sa));
 
-        // Scanlines
-        int slA = (int)(0x0D * sa / 255);
-        if (slA > 0) {
-            ctx.fill(0, (int)scanLine,  W, (int)scanLine  + 2, (slA << 24) | 0xFFFFFF);
-            ctx.fill(0, (int)scanLine2, W, (int)scanLine2 + 1, (slA/2 << 24) | 0xFFFFFF);
+        // Data streams (ice)
+        for (int i = 0; i < COL_COUNT; i++) {
+            if (cy2[i] < 0) continue;
+            int a = (int)(55 * fade);
+            if (a > 0) ctx.drawText(textRenderer, String.valueOf(CHARS.charAt(cch[i])), (int)cx2[i] - 4, (int)cy2[i], (a << 24) | 0x44AABB, false);
         }
 
-        drawPanel(ctx, cx, cy, W, H, sa);
-        super.render(ctx, mouseX, mouseY, delta);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-
-    private void drawGrid(DrawContext ctx, int W, int H, int sa) {
-        int a = (int)(0x07 * sa / 255); if (a <= 0) return;
-        for (int x = 0; x < W; x += 50) ctx.fill(x, 0, x + 1, H, (a<<24)|0x00F5FF);
-        for (int y = 0; y < H; y += 50) ctx.fill(0, y, W, y + 1, (a<<24)|0x00F5FF);
-    }
-
-    private void drawOrbs(DrawContext ctx, int sa) {
-        for (float[] o : orbs) {
-            float tw = (MathHelper.sin(o[6]) + 1f) / 2f;
-            int a = (int)(o[5] * tw * sa * 0.25f); if (a <= 0) continue;
-            int sz = (int)o[4];
-            int c = switch((int)o[7]){ case 1->0x9B00FF; case 2->0xFFD700; default->0x00F5FF; };
-            ctx.fill((int)o[0]-sz,(int)o[1]-sz/2,(int)o[0]+sz,(int)o[1]+sz/2,(a<<24)|c);
+        // ── SNOW ──────────────────────────────────────────────────────────
+        for (int i = 0; i < SNOW_COUNT; i++) {
+            float tw = (MathHelper.sin(sph[i]) + 1f) / 2f;
+            int a = (int)(sal[i] * (0.5f + 0.5f * tw) * 255 * fade);
+            if (a < 12) continue;
+            int sz = (int)ssz[i];
+            int col = (ssz[i] > 3.5f) ? SNOW_A : (ssz[i] > 2.5f) ? SNOW_B : 0xFFAACCDD;
+            ctx.fill((int)sx[i], (int)sy[i], (int)sx[i] + sz, (int)sy[i] + sz, withAlpha(col, a));
+            // Larger flakes get a center sparkle
+            if (sz >= 3 && a > 120) {
+                ctx.fill((int)sx[i] + 1, (int)sy[i] + 1, (int)sx[i] + sz - 1, (int)sy[i] + sz - 1, withAlpha(SNOW_A, Math.min(255, a + 60)));
+            }
         }
-    }
 
-    private void drawDataStreams(DrawContext ctx, int sa) {
-        for (float[] d : dataStreams) {
-            if (d[1] < 0) continue;
-            int hA = (int)((55 + 45 * glowPulse) * sa / 255);
-            ctx.drawText(textRenderer, String.valueOf(CHARS.charAt((int)d[3])),
-                (int)d[0] - 4, (int)d[1], (Math.min(255, hA*2)<<24)|0x00F5FF, false);
-            if (d[1] > 14)
-                ctx.drawText(textRenderer, String.valueOf(CHARS.charAt((int)d[3])),
-                    (int)d[0] - 4, (int)d[1] - 14, (hA<<24)|0x003344, false);
+        // Sparkle glitters
+        for (int i = 0; i < SPARK_COUNT; i++) {
+            float tw = (MathHelper.sin(gpp[i]) + 1f) / 2f;
+            if (tw < 0.6f) continue;
+            int a = (int)((tw - 0.6f) * 2.5f * 200 * fade);
+            if (a < 20) continue;
+            int sz = (int)gps[i];
+            ctx.fill((int)gpx[i] - sz, (int)gpy[i], (int)gpx[i] + sz, (int)gpy[i] + 1, withAlpha(SNOW_A, a));
+            ctx.fill((int)gpx[i], (int)gpy[i] - sz, (int)gpx[i] + 1, (int)gpy[i] + sz, withAlpha(SNOW_A, a));
         }
-    }
 
-    private void drawParticles(DrawContext ctx, int sa) {
-        for (float[] p : particles) {
-            float tw = (MathHelper.sin(p[6]) + 1f) / 2f;
-            int a = (int)(p[5] * tw * sa); if (a < 8) continue;
-            boolean big = p[4] > 2f;
-            int col = switch((int)p[7]){
-                case 1->(a<<24)|(big?0x9B00FF:0x220033);
-                case 2->(a<<24)|(big?0xFFD700:0x443300);
-                case 3->(a<<24)|(big?0xFF2200:0x330000);
-                case 4->(a<<24)|(big?0x00FF66:0x003311);
-                default->(a<<24)|(big?0x00F5FF:0x003344);
-            };
-            int sz = p[4] > 2.5f ? 2 : 1;
-            ctx.fill((int)p[0],(int)p[1],(int)p[0]+sz,(int)p[1]+sz, col);
+        // ── PANEL ─────────────────────────────────────────────────────────
+        int pw = 440, ph = 280, px = pcx - pw / 2, py = pcy - ph / 2;
+
+        // Drop shadow (deep)
+        ctx.fill(px + 14, py + 14, px + pw + 14, py + ph + 14, fade(0xCC000000, sa));
+        ctx.fill(px + 7,  py + 7,  px + pw + 7,  py + ph + 7,  fade(0x55000000, sa));
+
+        // Panel background — SOLID opaque dark ice
+        ctx.fill(px, py, px + pw, py + ph, fade(PANEL_BG, sa));
+
+        // Subtle shimmer gradient (top → transparent)
+        for (int y = 0; y < 60; y++) {
+            int ga = (int)((1f - y / 60f) * 18 * fade);
+            if (ga > 0) ctx.fill(px, py + y, px + pw, py + y + 1, (ga << 24) | 0xAADDFF);
         }
-    }
 
-    private void drawRings(DrawContext ctx, int cx, int cy, int sa) {
-        for (float[] r : rings) {
-            int rad = (int)r[2]; if (rad < 2) continue;
-            float ff = 1f - r[2] / (Math.max(width, height) * 0.9f);
-            int a = (int)(r[4] * ff * sa / 255 * 40); if (a <= 0) continue;
-            int c = switch((int)r[5]){ case 1->(a<<24)|0x9B00FF; case 2->(a<<24)|0xFFD700; default->(a<<24)|0x00F5FF; };
-            ctx.fill(cx-rad,cy-1,cx+rad,cy+1,c);
-            ctx.fill(cx-1,cy-rad,cx+1,cy+rad,c);
+        // ── BORDER — 5px SOLID bright ice ─────────────────────────────────
+        int bA = (int)((0.9f + 0.1f * glow) * 255 * fade);
+        // Outer glow ring
+        int glowA = (int)(0.25f * glow * 255 * fade);
+        if (glowA > 0) {
+            ctx.fill(px - 3, py - 3, px + pw + 3, py + 1,      withAlpha(BORDER, glowA));
+            ctx.fill(px - 3, py + ph - 1, px + pw + 3, py + ph + 3, withAlpha(BORDER, glowA));
+            ctx.fill(px - 3, py - 3, px + 1, py + ph + 3,      withAlpha(BORDER, glowA));
+            ctx.fill(px + pw - 1, py - 3, px + pw + 3, py + ph + 3, withAlpha(BORDER, glowA));
         }
-    }
+        // Main 5px border (solid bright ice)
+        ctx.fill(px,     py,     px+pw,  py+5,    withAlpha(BORDER, bA));
+        ctx.fill(px,     py+ph-5,px+pw,  py+ph,   withAlpha(BORDER, bA));
+        ctx.fill(px,     py,     px+5,   py+ph,   withAlpha(BORDER, bA));
+        ctx.fill(px+pw-5,py,     px+pw,  py+ph,   withAlpha(BORDER, bA));
+        // Inner highlight line
+        int ihA = (int)(0.45f * 255 * fade);
+        ctx.fill(px+5, py+5, px+pw-5, py+6,      withAlpha(0xFFEEF8FF, ihA));
+        ctx.fill(px+5, py+ph-6, px+pw-5, py+ph-5, withAlpha(0xFFEEF8FF, ihA));
 
-    private void drawPanel(DrawContext ctx, int cx, int cy, int W, int H, int sa) {
-        int pw = 360, ph = 240;
-        int px = cx - pw/2, py = cy - ph/2;
+        // GOLD corners — bigger
+        int gcA = (int)(0.95f * 255 * fade);
+        drawCorner(ctx, px, py, px + pw, py + ph, 30, withAlpha(GOLD, gcA));
 
-        // Shadow layers
-        ctx.fill(px+10,py+10,px+pw+10,py+ph+10,alphaBlend(0x77000000,sa));
-        ctx.fill(px+5, py+5, px+pw+5, py+ph+5, alphaBlend(0x33000000,sa));
-
-        // Panel BG
-        ctx.fill(px,py,px+pw,py+ph,alphaBlend(0xF00A0A18,sa));
-
-        // Animated hue border
-        float t = tickCount * 0.04f;
-        int bR = (int)(Math.abs(Math.sin(t)) * 155);
-        int bG = Math.max(0,Math.min(255,(int)(180+75*Math.sin(t+2.1))));
-        int bB = Math.max(0,Math.min(255,(int)(240+15*Math.sin(t+4.2))));
-        int bA = (int)((0.65f+0.35f*glowPulse)*sa);
-        int bc = (bA<<24)|(bR<<16)|(bG<<8)|bB;
-        int bc2= ((bA/4)<<24)|(bR<<16)|(bG<<8)|bB;
-        ctx.fill(px,     py,     px+pw,  py+2,    bc);
-        ctx.fill(px,     py+ph-2,px+pw,  py+ph,   bc);
-        ctx.fill(px,     py,     px+2,   py+ph,   bc);
-        ctx.fill(px+pw-2,py,     px+pw,  py+ph,   bc);
-        ctx.fill(px+2,   py+2,   px+pw-2,py+3,    bc2);
-        ctx.fill(px+2,   py+ph-3,px+pw-2,py+ph-2, bc2);
-        ctx.fill(px+2,   py+2,   px+3,   py+ph-2, bc2);
-        ctx.fill(px+pw-3,py+2,   px+pw-2,py+ph-2, bc2);
-
-        // Gold corners (decorative)
-        int gcA = (int)(0xEE * sa / 255);
-        int gc = (gcA<<24)|0xFFD700;
-        int cs = 22;
-        ctx.fill(px,       py,       px+cs,  py+3,  gc); ctx.fill(px,      py,       px+3,   py+cs, gc);
-        ctx.fill(px+pw-cs, py,       px+pw,  py+3,  gc); ctx.fill(px+pw-3, py,       px+pw,  py+cs, gc);
-        ctx.fill(px,       py+ph-3,  px+cs,  py+ph, gc); ctx.fill(px,      py+ph-cs, px+3,   py+ph, gc);
-        ctx.fill(px+pw-cs, py+ph-3,  px+pw,  py+ph, gc); ctx.fill(px+pw-3, py+ph-cs, px+pw,  py+ph, gc);
-
-        // ── TITLE ──
-        int ty = py + 28;
+        // ── TITLE ─────────────────────────────────────────────────────────
+        int ty = py + 32;
         String t1 = "PROFESSOR", t2 = " CLIENT";
         int tw1 = textRenderer.getWidth(t1), tw2 = textRenderer.getWidth(t2);
-        int totalW = tw1 + tw2, startX = cx - totalW/2;
-
-        // Glow behind title
-        int gA = (int)((38 + 28 * glowPulse) * sa / 255);
-        for (int dx = -5; dx <= 5; dx++) {
-            int g2 = Math.max(0, gA - Math.abs(dx)*6);
-            if (g2 <= 0) continue;
-            ctx.drawText(textRenderer, t1+t2, startX+dx, ty,    (g2<<24)|0x00F5FF, false);
-            ctx.drawText(textRenderer, t1+t2, startX,    ty+dx, (g2<<24)|0x00F5FF, false);
+        int startX = pcx - (tw1 + tw2) / 2;
+        // Glow halo
+        int gA = (int)((50 + 35 * glow) * fade);
+        for (int d = -6; d <= 6; d++) {
+            int g2 = Math.max(0, gA - Math.abs(d) * 7);
+            if (g2 > 0) {
+                ctx.drawText(textRenderer, t1 + t2, startX + d, ty, (g2 << 24) | 0x00CCFF, false);
+                ctx.drawText(textRenderer, t1 + t2, startX, ty + d, (g2 << 24) | 0x00CCFF, false);
+            }
         }
-        int tA = (int)((210+45*glowPulse)*sa/255);
-        ctx.drawText(textRenderer, t1, startX,      ty, (tA<<24)|0x00F5FF, false);
-        ctx.drawText(textRenderer, t2, startX+tw1,  ty, (tA<<24)|0xFFD700, false);
+        int tA = (int)((220 + 35 * glow) * fade);
+        ctx.drawText(textRenderer, t1, startX,      ty, withAlpha(TITLE1, tA), false);
+        ctx.drawText(textRenderer, t2, startX + tw1, ty, withAlpha(TITLE2, tA), false);
 
         // Subtitle
-        String sub = "v3.0  |  6 Modules  |  8 Bypass  |  Unlimited";
-        int sA = (int)((120+60*glowPulse)*sa/255);
-        ctx.drawText(textRenderer, sub, cx-textRenderer.getWidth(sub)/2, ty+12, (sA<<24)|0x9B00FF, false);
+        String sub = "❄  Frost Edition  v3.0  |  8 Bypass Modes  |  1.21.1  ❄";
+        int sA = (int)((160 + 55 * glow) * fade);
+        ctx.drawText(textRenderer, sub, pcx - textRenderer.getWidth(sub) / 2, ty + 13, withAlpha(CRYSTAL, sA), false);
 
-        // Gold divider
-        int divA = (int)(0x55 * sa / 255);
-        ctx.fill(px+32,py+50,px+pw-32,py+51,(divA<<24)|0xFFD700);
+        // ICE divider
+        int divA = (int)(120 * fade);
+        ctx.fill(px + 30, py + 52, px + pw - 30, py + 53, withAlpha(BORDER2, divA));
 
-        // ── PROGRESS ──
-        int barX = px+30, barY = py+72, barW = pw-60, barH = 9;
-        String pct = (int)loadProgress + "%";
-        int pA = (int)(210*sa/255);
-        ctx.drawText(textRenderer, pct, cx-textRenderer.getWidth(pct)/2, barY-13, (pA<<24)|0x00F5FF, false);
+        // ── PROGRESS ──────────────────────────────────────────────────────
+        int barX = px + 35, barY = py + 78, barW = pw - 70, barH = 12;
+        String pctTxt = (int)loadProgress + "%";
+        int pA = (int)(235 * fade);
 
-        // Bar border
-        ctx.fill(barX-1,barY-1,barX+barW+1,barY+barH+1,(int)(0x44*sa/255)<<24|0x00F5FF);
-        ctx.fill(barX,barY,barX+barW,barY+barH,0x1A000000);
+        // Percentage text (bright)
+        ctx.drawText(textRenderer, pctTxt, pcx - textRenderer.getWidth(pctTxt) / 2, barY - 15, withAlpha(TITLE1, pA), false);
 
-        // Bar gradient fill (purple → cyan)
+        // Bar background (dark with bright border)
+        ctx.fill(barX - 2, barY - 2, barX + barW + 2, barY + barH + 2, withAlpha(BORDER, (int)(140 * fade)));
+        ctx.fill(barX, barY, barX + barW, barY + barH, fade(0xFF010E1E, sa));
+
+        // Bar fill — deep blue → ice white
         int fillW = (int)(barW * loadProgress / 100f);
-        if (fillW > 0) {
-            for (int xi = 0; xi < fillW; xi++) {
-                float frac = (float)xi / barW;
-                int r = (int)MathHelper.lerp(frac, 155f, 0f);
-                int g = (int)MathHelper.lerp(frac, 0f,   245f);
-                ctx.fill(barX+xi, barY, barX+xi+1, barY+barH, 0xFF000000|(r<<16)|(g<<8)|255);
-            }
-            // Cap glow
-            int gcA2 = (int)(140*glowPulse*sa/255);
-            ctx.fill(barX+fillW-6,barY-2,barX+fillW+2,barY+barH+2,(gcA2<<24)|0x00F5FF);
+        for (int xi = 0; xi < fillW; xi++) {
+            float fr = (float)xi / barW;
+            int r = (int)MathHelper.lerp(fr, 10f, 170f);
+            int g = (int)MathHelper.lerp(fr, 80f, 235f);
+            ctx.fill(barX + xi, barY, barX + xi + 1, barY + barH, 0xFF000000 | (r << 16) | (g << 8) | 255);
+        }
+        // Bar cap glow
+        if (fillW > 3) {
+            int capA = (int)((180 + 75 * glow) * fade);
+            ctx.fill(barX + fillW - 5, barY - 2, barX + fillW + 5, barY + barH + 2, withAlpha(TITLE1, capA));
         }
 
-        // Tile segments
-        int tileY = barY + barH + 5;
-        int tiles = 30, tileW = (barW - tiles + 1) / tiles;
+        // Segment dividers in bar
+        for (int s = 1; s < 25; s++) {
+            int sx2 = barX + barW * s / 25;
+            ctx.fill(sx2, barY, sx2 + 1, barY + barH, fade(0x22000000, sa));
+        }
+
+        // Block tiles below bar
+        int tileY = barY + barH + 6;
+        int tiles = 28, tileW = (barW - tiles + 1) / tiles;
         for (int i = 0; i < tiles; i++) {
             int txp = barX + i * (tileW + 1);
             boolean filled = i < (int)(loadProgress / 100f * tiles);
-            int tcA = (int)((filled ? 0xCC : 0x14) * sa / 255);
-            ctx.fill(txp, tileY, txp+tileW, tileY+3, (tcA<<24)|(filled?0x00F5FF:0xFFFFFF));
+            int tcA = (int)((filled ? 200 : 22) * fade);
+            ctx.fill(txp, tileY, txp + tileW, tileY + 5, withAlpha(filled ? BORDER2 : 0xFF335566, tcA));
         }
 
-        // Status message
-        String msg = MESSAGES[messageIndex];
-        int mA = (int)((140+80*glowPulse)*sa/255);
-        ctx.drawText(textRenderer, msg, cx-textRenderer.getWidth(msg)/2, tileY+9, (mA<<24)|0xAAFFFF, false);
+        // Status message (bright, easy to read)
+        String msg = MESSAGES[msgIdx];
+        int mA = (int)((200 + 55 * glow) * fade);
+        ctx.drawText(textRenderer, msg, pcx - textRenderer.getWidth(msg) / 2, tileY + 10, withAlpha(TXT_ICE, mA), false);
 
         // Blinking READY
-        if (done && doneTimer%20 < 10) {
-            String ready = ">>> READY <<<";
-            int rA = (int)(230*sa/255);
-            ctx.drawText(textRenderer, ready, cx-textRenderer.getWidth(ready)/2, tileY+22, (rA<<24)|0xFFD700, false);
+        if (done && doneTimer % 22 < 11) {
+            String ready = ">>>  ❄  READY  ❄  <<<";
+            int rA = (int)(240 * fade);
+            ctx.drawText(textRenderer, ready, pcx - textRenderer.getWidth(ready) / 2, tileY + 24, withAlpha(GOLD, rA), false);
         }
 
-        // Copyright
-        ctx.fill(px+32,py+ph-26,px+pw-32,py+ph-25,(int)(0x33*sa/255)<<24|0x00F5FF);
-        String copy = "(c) Professor Client  --  Elite Fabric Mod  1.21.1";
-        int copyA = (int)(75*sa/255);
-        ctx.drawText(textRenderer, copy, cx-textRenderer.getWidth(copy)/2, py+ph-16, (copyA<<24)|0x9B00FF, false);
+        // Footer
+        int cpA = (int)(110 * fade);
+        ctx.fill(px + 30, py + ph - 24, px + pw - 30, py + ph - 23, withAlpha(BORDER2, cpA / 2));
+        String copy = "(c) Xerion Client  ❄  Frost Fabric Edition  ❄  1.21.1";
+        ctx.drawText(textRenderer, copy, pcx - textRenderer.getWidth(copy) / 2, py + ph - 16, withAlpha(TXT_DIM, cpA), false);
+
+        super.render(ctx, mouseX, mouseY, delta);
     }
 
-    private int alphaBlend(int color, int sa) {
-        int baseA = (color >>> 24) & 0xFF;
-        int newA  = (int)(baseA * sa / 255);
-        return (newA << 24) | (color & 0x00FFFFFF);
+    // ── Helpers ──────────────────────────────────────────────────────────
+    private static int withAlpha(int rgb, int a) {
+        return (Math.max(0, Math.min(255, a)) << 24) | (rgb & 0x00FFFFFF);
+    }
+    private static int fade(int argb, int sa) {
+        int baseA = (argb >>> 24) & 0xFF;
+        return withAlpha(argb, baseA * sa / 255);
+    }
+    private static void drawCorner(DrawContext ctx, int x1, int y1, int x2, int y2, int cs, int col) {
+        ctx.fill(x1,    y1,    x1+cs, y1+5,  col); ctx.fill(x1,    y1,    x1+5,  y1+cs, col);
+        ctx.fill(x2-cs, y1,    x2,    y1+5,  col); ctx.fill(x2-5,  y1,    x2,    y1+cs, col);
+        ctx.fill(x1,    y2-5,  x1+cs, y2,    col); ctx.fill(x1,    y2-cs, x1+5,  y2,    col);
+        ctx.fill(x2-cs, y2-5,  x2,    y2,    col); ctx.fill(x2-5,  y2-cs, x2,    y2,    col);
     }
 }
