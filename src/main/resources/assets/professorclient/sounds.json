@@ -1,0 +1,20 @@
+{
+  "music.theme": {
+    "sounds": [
+      {
+        "name": "professorclient:music/theme",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
+  },
+  "music.rap": {
+    "sounds": [
+      {
+        "name": "professorclient:music/rap",
+        "stream": true,
+        "volume": 0.85
+      }
+    ]
+  }
+}
