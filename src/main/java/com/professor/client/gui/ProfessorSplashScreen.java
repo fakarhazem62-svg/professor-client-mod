@@ -58,8 +58,6 @@ public class ProfessorSplashScreen extends Screen {
     @Override
     public boolean shouldCloseOnEsc() { return false; }
 
-    @Override
-    public boolean isPauseScreen() { return false; }
 
     // ── Tick ───────────────────────────────────────────────────────────────
 
