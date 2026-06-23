@@ -89,7 +89,7 @@ public class ProfessorScreen extends Screen {
 
         for (int i = 0; i < 300; i++) {
             this.client.player.networkHandler.sendPacket(
-                    new PlayerMoveC2SPacket.Full(x, y, z, yaw, pitch, onGround, false)
+                    new PlayerMoveC2SPacket.Full(x, y, z, yaw, pitch, onGround)
             );
         }
     }
