@@ -146,7 +146,6 @@ public class ProfessorScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
-        if (packetField != null) packetField.tick();
         if (statusTimer > 0) statusTimer--;
     }
 
