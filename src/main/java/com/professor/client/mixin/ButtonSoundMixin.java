@@ -26,7 +26,7 @@ public class ButtonSoundMixin {
             if (mc == null || mc.getSoundManager() == null) return;
             // Crystal ice-click: note_block.bell at high pitch — light, crisp
             mc.getSoundManager().play(
-                PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_BELL, 2.0f, 0.55f)
+                PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_BELL.value(), 2.0f, 0.55f)
             );
         } catch (Exception ignored) {}
     }
