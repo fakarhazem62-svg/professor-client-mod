@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "professorclient",
+  "version": "${version}",
+  "name": "Professor Client",
+  "description": "Professor Client - Advanced Minecraft Utility Mod",
+  "authors": ["Professor"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.professor.client.ProfessorClientMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}
