@@ -73,7 +73,7 @@ public class ProfessorScreen extends Screen {
     @Override protected void init() { initStars(); rebuild(); }
 
     private void rebuild() {
-        clearWidgets();
+        clearChildren();
         int cx = width/2, cy = height/2;
         int px = cx - PW/2, py = cy - PH/2;
 
