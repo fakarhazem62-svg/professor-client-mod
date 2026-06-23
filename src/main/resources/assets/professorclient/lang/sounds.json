@@ -1,0 +1,11 @@
+{
+  "music.theme": {
+    "sounds": [
+      {
+        "name": "professorclient:music/theme",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
+  }
+}
