@@ -12,15 +12,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Random;
 
-/**
- * Applies Xerion Client ice theme to ALL menu screens
- * (server list, options, world select, resources, etc.)
- * Only activates when player is not in a world (main-menu context).
- */
 @Mixin(Screen.class)
 public class AllScreensMixin {
 
-    // ── Static: shared across every Screen instance ────────────────────────
     @Unique private static final int SNOW = 200;
     @Unique private static final float[] SX  = new float[SNOW];
     @Unique private static final float[] SY  = new float[SNOW];
@@ -39,35 +33,26 @@ public class AllScreensMixin {
     @Unique private static int     A_FRAME  = 0;
     @Unique private static float   A_GLOW   = 0f;
     @Unique private static boolean A_GLOWUP = true;
-    @Unique private static float   A_HUE    = 0f;
     @Unique private static final Random ARNG = new Random();
 
-    // ── Colours ────────────────────────────────────────────────────────────
     @Unique private static final int C_BG  = 0xFF010A14;
     @Unique private static final int C_GRD = 0xFF113355;
     @Unique private static final int C_BOR = 0xFFAAEEFF;
-    @Unique private static final int C_B2  = 0xFF55CCFF;
     @Unique private static final int C_GOL = 0xFFFFD700;
     @Unique private static final int C_CRY = 0xFF00CCEE;
     @Unique private static final int C_TXT = 0xFFCCF0FF;
 
-    // ══════════════════════════════════════════════════════════════════════
-
-    /** Replace vanilla dark/blurred background with our ice background. */
     @Inject(at = @At("HEAD"), method = "renderBackground", cancellable = true)
     private void xerion$bg(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
         MinecraftClient mc = MinecraftClient.getInstance();
-        // Only in main-menu context (no player in world)
         if (mc.player != null) return;
-        // TitleScreen has its own mixin
         if ((Object)this instanceof TitleScreen) return;
 
         int W = ctx.getScaledWindowWidth(), H = ctx.getScaledWindowHeight();
 
-        // Lazy-init snow
         if (!READY) {
             for (int i = 0; i < SNOW; i++) {
-                SX[i]  = ARNG.nextFloat() * W;  SY[i]  = ARNG.nextFloat() * H;
+                SX[i]  = ARNG.nextFloat() * W; SY[i]  = ARNG.nextFloat() * H;
                 SSP[i] = ARNG.nextFloat() * .8f + .18f;
                 SSZ[i] = ARNG.nextFloat() * 4f + 1f;
                 SAL[i] = ARNG.nextFloat() * .65f + .2f;
@@ -80,14 +65,11 @@ public class AllScreensMixin {
             READY = true;
         }
 
-        // Advance animation
         A_FRAME++;
-        A_HUE = (A_HUE + 0.003f) % 1f;
         A_GLOW += A_GLOWUP ? 0.022f : -0.022f;
         if (A_GLOW >= 1f) { A_GLOW = 1f; A_GLOWUP = false; }
         else if (A_GLOW <= 0f) { A_GLOW = 0f; A_GLOWUP = true; }
 
-        // Snow physics
         float drift = A_FRAME * 0.010f;
         for (int i = 0; i < SNOW; i++) {
             SY[i] += SSP[i];
@@ -99,17 +81,15 @@ public class AllScreensMixin {
         }
         for (int i = 0; i < SPARK; i++) GPP[i] += 0.055f;
 
-        // ── Draw ice background ────────────────────────────────────────────
+        // Ice background
         ctx.fill(0, 0, W, H, C_BG);
         for (int x = 0; x < W; x += 42) ctx.fill(x, 0, x+1, H, xa(C_GRD, 6));
         for (int y = 0; y < H; y += 42) ctx.fill(0, y, W, y+1, xa(C_GRD, 6));
-
-        // Top glow gradient
         for (int y = 0; y < 60; y++) {
             int ga = (int)((1f - y/60f) * 12); if (ga > 0) ctx.fill(0, y, W, y+1, xa(0xAADDFF, ga));
         }
 
-        // Snow
+        // Snow flakes
         for (int i = 0; i < SNOW; i++) {
             float tw = (MathHelper.sin(SPH[i]) + 1f) / 2f;
             int a = (int)(SAL[i] * (0.4f + 0.6f * tw) * 200); if (a < 10) continue;
@@ -128,10 +108,9 @@ public class AllScreensMixin {
             ctx.fill((int)GPX[i],(int)GPY[i]-sz,(int)GPX[i]+1,(int)GPY[i]+sz+1, xa(0xFFFFFF,a));
         }
 
-        ci.cancel(); // cancel vanilla dark overlay
+        ci.cancel();
     }
 
-    /** Draw border + decorations on top after screen content is rendered. */
     @Inject(at = @At("TAIL"), method = "render")
     private void xerion$tail(DrawContext ctx, int mx, int my, float delta, CallbackInfo ci) {
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -141,44 +120,41 @@ public class AllScreensMixin {
 
         int W = ctx.getScaledWindowWidth(), H = ctx.getScaledWindowHeight();
 
-        // Outer glow edges
-        int ogA = (int)(28 * A_GLOW);
-        if (ogA > 0) {
-            for (int v = 0; v < 4; v++) {
-                int la = ogA - v*7; if (la <= 0) break;
-                ctx.fill(v, v, W-v, v+1,     xa(C_BOR, la));
-                ctx.fill(v, H-v-1, W-v, H-v, xa(C_BOR, la));
-                ctx.fill(v, v, v+1, H-v,     xa(C_BOR, la));
-                ctx.fill(W-v-1, v, W-v, H-v, xa(C_BOR, la));
-            }
-        }
-        // Solid 3px border
+        // Glowing border
         int bA = (int)(85 + 70 * A_GLOW);
         ctx.fill(0, 0, W, 3,   xa(C_BOR, bA));
         ctx.fill(0, H-3, W, H, xa(C_BOR, bA));
         ctx.fill(0, 0, 3, H,   xa(C_BOR, bA));
         ctx.fill(W-3, 0, W, H, xa(C_BOR, bA));
 
+        // Outer glow pulses
+        for (int v = 1; v <= 3; v++) {
+            int la = (int)((A_GLOW * 22) / v); if (la <= 0) continue;
+            ctx.fill(v, v, W-v, v+1,     xa(C_BOR, la));
+            ctx.fill(v, H-v-1, W-v, H-v, xa(C_BOR, la));
+            ctx.fill(v, v, v+1, H-v,     xa(C_BOR, la));
+            ctx.fill(W-v-1, v, W-v, H-v, xa(C_BOR, la));
+        }
+
         // Gold corners
         int gcA = (int)(195 + 55 * A_GLOW);
         aCorner(ctx, 0, 0, W, H, 22, xa(C_GOL, gcA));
 
-        // Crystal shards at corners
+        // Crystal shards
         int shA = (int)(110 + 70 * A_GLOW);
         aShard(ctx, 3,    12,   xa(C_CRY, shA));
         aShard(ctx, W-11, 12,   xa(C_CRY, shA));
         aShard(ctx, 3,    H-20, xa(C_CRY, shA));
         aShard(ctx, W-11, H-20, xa(C_CRY, shA));
 
-        // Top-right badge
+        // Badge — version v1
         var tr = mc.textRenderer;
         if (tr != null) {
-            String badge = "Xerion Client  ❄  v4.0";
+            String badge = "Xerion Client  ❄  v1";
             int bx = W - tr.getWidth(badge) - 7;
             int na = (int)(180 + 60 * A_GLOW);
             for (int d = 1; d <= 2; d++)
                 ctx.drawText(tr, badge, bx+d, 4+d, xa(0x000A14, na/(d*2+1)), false);
-            ctx.drawText(tr, badge, bx, 4, xa(0x00CCFF, (int)(40*A_GLOW)), false);
             ctx.drawText(tr, badge, bx, 4, xa(C_TXT, na), false);
         }
     }
