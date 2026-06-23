@@ -1,7 +1,7 @@
 package com.professor.client;
 
-import com.professor.client.gui.KeyActivationScreen;
 import com.professor.client.gui.ProfessorMusicManager;
+import com.professor.client.gui.ProfessorScreen;
 import com.professor.client.gui.ProfessorSplashScreen;
 import com.professor.client.proxy.ProxyManager;
 import com.professor.client.task.BackgroundTaskManager;
@@ -58,7 +58,7 @@ public class ProfessorClientMod implements ClientModInitializer {
             while (openGuiKey.wasPressed()) {
                 if (client.player != null) {
                     playSound(client, "hello_friend");
-                    client.setScreen(new KeyActivationScreen());
+                    client.setScreen(new ProfessorScreen());
                 }
             }
 
