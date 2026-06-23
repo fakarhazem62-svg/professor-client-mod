@@ -10,14 +10,24 @@ public class ProfessorMusicManager {
     private static SoundInstance currentMusic = null;
     private static long   musicStartMs = 0;
     private static boolean playing     = false;
+    private static boolean titlePlayed = false;
 
-    // Silhouette drop zones in ticks (1 tick = 50ms)
-    // Intro 0-280, Verse 280-1000, Chorus 1000-1640, Bridge 1640-2200, Chorus2 2200-2800
     private static final int[][] HYPE_ZONES = {{1000,1640},{2200,2800}};
+
+    public static void playOnTitleScreen(MinecraftClient client) {
+        if (client == null || titlePlayed) return;
+        titlePlayed = true;
+        playSilhouette(client);
+    }
 
     public static void onOpen(MinecraftClient client) {
         if (client == null || playing) return;
+        playSilhouette(client);
+    }
+
+    private static void playSilhouette(MinecraftClient client) {
         try {
+            stop(client);
             var id  = Identifier.of("professorclient", "music.silhouette");
             var reg = net.minecraft.registry.Registries.SOUND_EVENT;
             if (!reg.containsId(id)) return;
@@ -29,6 +39,10 @@ public class ProfessorMusicManager {
     }
 
     public static void onClose(MinecraftClient client) {
+        stop(client);
+    }
+
+    private static void stop(MinecraftClient client) {
         if (client == null || currentMusic == null) return;
         try { client.getSoundManager().stop(currentMusic); } catch (Exception ignored) {}
         currentMusic = null;
@@ -41,7 +55,6 @@ public class ProfessorMusicManager {
         return playing ? (int)((System.currentTimeMillis() - musicStartMs) / 50L) : 0;
     }
 
-    /** 0 = calm, 1 = full drop/hype (chorus) */
     public static float getHypeLevel() {
         if (!playing) return 0f;
         int t = getMusicTicks();
