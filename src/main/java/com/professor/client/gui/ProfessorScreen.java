@@ -75,7 +75,6 @@ public class ProfessorScreen extends Screen {
         );
         packetField.setMaxLength(6);
         packetField.setText("300");
-        packetField.setPlaceholder(Text.literal("e.g. 300"));
         this.addSelectableChild(packetField);
 
         // Send Packets button
