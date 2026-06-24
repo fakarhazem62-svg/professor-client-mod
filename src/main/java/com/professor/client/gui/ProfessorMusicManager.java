@@ -1,52 +1,76 @@
 package com.professor.client.gui;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.AbstractSoundInstance;
+import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.math.random.Random;
 
 public class ProfessorMusicManager {
 
-    private static SoundInstance current = null;
-    private static long startMs  = -1;
-    private static long pausedMs = 0;
+    private static SoundInstance currentMusic = null;
+    private static long   musicStartMs = 0;
+    private static boolean playing     = false;
+    private static boolean titlePlayed = false;
+
+    private static final int[][] HYPE_ZONES = {{1000,1640},{2200,2800}};
+
+    public static void playOnTitleScreen(MinecraftClient client) {
+        if (client == null || titlePlayed) return;
+        titlePlayed = true;
+        playSilhouette(client);
+    }
 
     public static void onOpen(MinecraftClient client) {
-        if (current != null && client.getSoundManager().isPlaying(current)) return;
-        current = new ThemeSound();
-        client.getSoundManager().play(current);
-        startMs = System.currentTimeMillis() - pausedMs;
+        if (client == null || playing) return;
+        playSilhouette(client);
+    }
+
+    private static void playSilhouette(MinecraftClient client) {
+        try {
+            stop(client);
+            var id  = Identifier.of("professorclient", "music.silhouette");
+            var reg = net.minecraft.registry.Registries.SOUND_EVENT;
+            if (!reg.containsId(id)) return;
+            currentMusic = PositionedSoundInstance.master(reg.get(id), 1f, 0.85f);
+            client.getSoundManager().play(currentMusic);
+            musicStartMs = System.currentTimeMillis();
+            playing = true;
+        } catch (Exception ignored) {}
     }
 
     public static void onClose(MinecraftClient client) {
-        if (current != null) {
-            pausedMs = System.currentTimeMillis() - startMs;
-            client.getSoundManager().stop(current);
-            current = null;
+        stop(client);
+    }
+
+    private static void stop(MinecraftClient client) {
+        if (client == null || currentMusic == null) return;
+        try { client.getSoundManager().stop(currentMusic); } catch (Exception ignored) {}
+        currentMusic = null;
+        playing = false;
+    }
+
+    public static boolean isPlaying(MinecraftClient client) { return playing; }
+
+    public static int getMusicTicks() {
+        return playing ? (int)((System.currentTimeMillis() - musicStartMs) / 50L) : 0;
+    }
+
+    public static float getHypeLevel() {
+        if (!playing) return 0f;
+        int t = getMusicTicks();
+        for (int[] z : HYPE_ZONES) {
+            if (t >= z[0] && t < z[1]) {
+                float rel = (float)(t - z[0]) / (z[1] - z[0]);
+                if      (rel < 0.2f) return rel * 5f;
+                else if (rel > 0.8f) return (1f - rel) * 5f;
+                else                 return 1f;
+            }
         }
+        if (t >= 280 && t < 1000) return 0.3f;
+        return 0f;
     }
 
-    public static float getProgress() {
-        if (startMs < 0) return 0f;
-        long elapsed = System.currentTimeMillis() - startMs;
-        return Math.min(1f, (float)(elapsed % (5L * 60 * 1000)) / (5L * 60 * 1000));
-    }
-
-    public static boolean isPlaying(MinecraftClient client) {
-        return current != null && client.getSoundManager().isPlaying(current);
-    }
-
-    private static class ThemeSound extends AbstractSoundInstance {
-        ThemeSound() {
-            super(Identifier.of("professorclient", "music.theme"), SoundCategory.RECORDS, Random.create());
-            this.repeat          = true;
-            this.repeatDelay     = 0;
-            this.volume          = 0.55f;
-            this.pitch           = 1.0f;
-            this.x = 0; this.y = 0; this.z = 0;
-            this.attenuationType = SoundInstance.AttenuationType.NONE;
-        }
+    public static float getVisualProgress() {
+        return playing ? Math.min(1f, getMusicTicks() / 3200f) : 0f;
     }
 }
