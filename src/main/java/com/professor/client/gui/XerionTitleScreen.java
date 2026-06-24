@@ -17,6 +17,11 @@ import java.util.Random;
 /** Complete ice-themed title screen replacement for Xerion Client */
 public class XerionTitleScreen extends Screen {
 
+    // ── Pending reconnect (set by ProfessorClientMod after proxy rotate) ──
+    public static volatile boolean pendingReconnect        = false;
+    public static volatile String  pendingReconnectAddress = "";
+    public static volatile String  pendingReconnectName    = "Server";
+
     // ── Palette ───────────────────────────────────────────────────────────
     private static final int BG      = 0xFF010A14;
     private static final int PANEL   = 0xFF041828;
