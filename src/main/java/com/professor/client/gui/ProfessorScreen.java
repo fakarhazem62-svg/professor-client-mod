@@ -158,7 +158,7 @@ public class ProfessorScreen extends Screen {
         // Proxy controls
         proxyField=new TextFieldWidget(textRenderer,x,y+220,bw-76,18,Text.empty());
         proxyField.setMaxLength(256);
-        proxyField.setPlaceholderText(Text.literal("socks5://host:port  or  host:port  (comma-separated for bulk)"));
+        proxyField.setSuggestion("socks5://host:port  or  host:port  (comma-separated for bulk)");
         addSelectableChild(proxyField);
 
         addDrawableChild(ButtonWidget.builder(Text.literal("+ ADD PROXY"),b->{
