@@ -14,6 +14,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.MathHelper;
 
+import com.professor.client.XerionModules;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -63,7 +64,7 @@ public class ProfessorScreen extends Screen {
     private TextFieldWidget numField, chatField, proxyField;
 
     // ── Status / VL ────────────────────────────────────────────────────────
-    private String statusText  = "Xerion Client v4  ❄  Ready";
+    private String statusText  = "Xerion Client v1  ❄  Ready";
     private int    statusColor = TXT_ICE;
     private int    statusTimer = 0;
     private float  vlEstimate  = 0f;
@@ -212,11 +213,18 @@ public class ProfessorScreen extends Screen {
         int bw=420,bx=cx-bw/2,y=bpy+74;
         addDrawableChild(ButtonWidget.builder(Text.literal("[1]  Hit Spam — 200×burst swings"),    b->{cs();combatHit();}).dimensions(bx,y,    bw,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("[2]  Crit Exploit — 0.42 Y-jump + hit"),b->{cs();combatCrit();}).dimensions(bx,y+24,bw,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("[3]  Anti-KB — 150 ground packets"),    b->{cs();combatAKB();}).dimensions(bx,y+48,bw,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("[3]  Anti-KB  (one-shot 150 pkts)"),    b->{cs();combatAKB();}).dimensions(bx,y+48,bw,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("[4]  Fast Use — 80 off-hand use"),      b->{cs();combatFU();}).dimensions(bx,y+72,bw,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("[5]  Reach — arc position flood"),      b->{cs();combatReach();}).dimensions(bx,y+96,bw,20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("[6]  Velocity Abuse — mixed Y arc"),    b->{cs();combatVelo();}).dimensions(bx,y+120,bw,20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("Burst: "+burst+"x"),b->{cs();burst=burst%8+1;b.setMessage(Text.literal("Burst: "+burst+"x"));}).dimensions(cx-60,y+148,120,18).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Burst: "+burst+"x"),b->{cs();burst=burst%8+1;b.setMessage(Text.literal("Burst: "+burst+"x"));}).dimensions(cx-60,y+144,120,18).build());
+        // ── Persistent modules ────────────────────────────────────────────
+        int hw2=bw/2-3;
+        addDrawableChild(ButtonWidget.builder(Text.literal(XerionModules.autoSwing?"▶ AUTO-SWING  ON ❄":"   AUTO-SWING  OFF"),b->{cs();XerionModules.autoSwing=!XerionModules.autoSwing;rebuild();}).dimensions(bx,y+166,hw2,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal(XerionModules.antiAfk?"▶ ANTI-AFK  ON ❄":"   ANTI-AFK  OFF"),b->{cs();XerionModules.antiAfk=!XerionModules.antiAfk;rebuild();}).dimensions(bx+hw2+4,y+166,hw2,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal(XerionModules.noFallAlways?"▶ NO-FALL  ON ❄":"   NO-FALL  OFF"),b->{cs();XerionModules.noFallAlways=!XerionModules.noFallAlways;rebuild();}).dimensions(bx,y+190,hw2,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal(XerionModules.antiKbAlways?"▶ ANTI-KB  ON ❄":"   ANTI-KB  OFF"),b->{cs();XerionModules.antiKbAlways=!XerionModules.antiKbAlways;rebuild();}).dimensions(bx+hw2+4,y+190,hw2,20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Swing Delay: "+XerionModules.autoSwingDelay+"ms"),b->{cs();XerionModules.autoSwingDelay=XerionModules.autoSwingDelay>=200?20:XerionModules.autoSwingDelay+20;rebuild();}).dimensions(bx,y+214,bw,18).build());
     }
 
     private void buildMove(int cx,int bpy){
@@ -232,10 +240,14 @@ public class ProfessorScreen extends Screen {
     }
 
     private void buildChat(int cx,int bpy){
-        chatField=new TextFieldWidget(textRenderer,cx-180,bpy+80,360,20,Text.empty());chatField.setMaxLength(256);chatField.setText("/gamemode creative");addSelectableChild(chatField);
-        numField=new TextFieldWidget(textRenderer,cx-75,bpy+106,150,18,Text.empty());numField.setMaxLength(6);numField.setText("50");addSelectableChild(numField);
-        addDrawableChild(ButtonWidget.builder(Text.literal("SPAM CHAT"),      b->{cs();doChat();}).dimensions(cx-110,bpy+130,220,22).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("SEND AS COMMAND"),b->{cs();doCmd();}).dimensions(cx-110,bpy+156,220,20).build());
+        chatField=new TextFieldWidget(textRenderer,cx-200,bpy+80,400,20,Text.empty());chatField.setMaxLength(256);chatField.setText("Hello!");addSelectableChild(chatField);
+        numField=new TextFieldWidget(textRenderer,cx-75,bpy+106,150,18,Text.empty());numField.setMaxLength(6);numField.setText("20");addSelectableChild(numField);
+        addDrawableChild(ButtonWidget.builder(Text.literal("💬 SPAM MESSAGE"),  b->{cs();doChat();}).dimensions(cx-210,bpy+130,200,22).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("⚙ SEND COMMAND"),  b->{cs();doCmd();}).dimensions(cx+10, bpy+130,200,22).build());
+        // Preset commands
+        String[] pre={"/spawn","/home","/tpa ","/tp ~10 ~ ~","/kill","/back","/warp ","/fly"};
+        int pw2=96; for(int i=0;i<pre.length;i++){final String p=pre[i];addDrawableChild(ButtonWidget.builder(Text.literal(p),b->{cs();if(chatField!=null){chatField.setText(p);}}).dimensions(cx-200+(i%4)*(pw2+4),bpy+160+(i/4)*20,pw2,18).build());}
+        // Stats
     }
 
     private void buildProxy(int cx, int bpy, int bpx) {
@@ -305,7 +317,7 @@ public class ProfessorScreen extends Screen {
         glow += glowUp ? 0.028f : -0.028f;
         if(glow>=1f){glow=1f;glowUp=false;} else if(glow<=0f){glow=0f;glowUp=true;}
 
-        if(statusTimer>0){statusTimer--;if(statusTimer==0){statusText="Xerion Client v4  ❄  Ready";statusColor=TXT_ICE;}}
+        if(statusTimer>0){statusTimer--;if(statusTimer==0){statusText="Xerion Client v1  ❄  Ready";statusColor=TXT_ICE;}}
         if(!BackgroundTaskManager.isIdle()){statusText=BackgroundTaskManager.getStatus();statusColor=BackgroundTaskManager.getStatusColor();statusTimer=2;}
 
         // Decay VL
@@ -410,25 +422,34 @@ public class ProfessorScreen extends Screen {
         String sub; int subCol=CRYSTAL;
         if(client!=null&&client.player!=null){
             var p=client.player;
-            sub=String.format("X:%.1f  Y:%.1f  Z:%.1f  ❄  HP:%.1f  ❄  Proxies:%d",p.getX(),p.getY(),p.getZ(),p.getHealth(),ProxyManager.count());
+            sub=String.format("X:%.0f  Y:%.0f  Z:%.0f  ❄  HP:%.0f  ❄  %s  ❄  PKT:%d",p.getX(),p.getY(),p.getZ(),p.getHealth(),XerionModules.sessionTimeStr(),XerionModules.totalPktsSent);
         } else {
-            sub="❄  Frost Engine  ·  "+ProfessorClientMod.VERSION+"  ·  1.21.1  ❄";
+            sub="❄  Xerion Client  ·  v1  ·  Fabric 1.21.1  ❄";
         }
         ctx.drawText(textRenderer,sub,cx2-textRenderer.getWidth(sub)/2,ty+12,withA(subCol,(int)(145+50*glow)),false);
 
         // Divider
         ctx.fill(bpx+28,bpy+TH-2,bpx+PW-28,bpy+TH-1,withA(BORDER2,100));
 
-        // ── Tabs ───────────────────────────────────────────────────────────
+        // ── Tabs — colored backgrounds + glow ─────────────────────────────
         int tabW=(PW-14)/NT;
         for(int i=0;i<NT;i++){
             boolean active=(i==tab);
             int tabX=bpx+7+i*(tabW+1), tabY2=bpy+TH+5;
+            int tc=TC[i];
             if(active){
-                // Glow underline under active tab
-                int tabGlA=(int)(100+80*glow);
-                ctx.fill(tabX,tabY2+TABH,tabX+tabW,tabY2+TABH+3,withA(TC[i]|(TC[i]<<24),tabGlA));
-                ctx.fill(tabX,tabY2+TABH+3,tabX+tabW,tabY2+TABH+4,withA(TC[i]|(TC[i]<<24),tabGlA/2));
+                // Active: bright top bar + colored fill + bottom glow
+                ctx.fill(tabX,   tabY2,tabX+tabW,tabY2+TABH,withA(tc,(int)(28+8*glow)));
+                ctx.fill(tabX,   tabY2,tabX+tabW,tabY2+3,   withA(tc,(int)(200+50*glow)));
+                ctx.fill(tabX+1, tabY2+3,tabX+tabW-1,tabY2+4, withA(tc,(int)(80+40*glow)));
+                ctx.fill(tabX,tabY2+TABH-2,tabX+tabW,tabY2+TABH,withA(tc,(int)(100+70*glow)));
+                ctx.fill(tabX,tabY2+TABH,tabX+tabW,tabY2+TABH+3,withA(tc,(int)(120+80*glow)));
+                // Outer glow
+                if((int)(20*glow)>0){ctx.fill(tabX-1,tabY2-1,tabX+tabW+1,tabY2,withA(tc,(int)(20*glow)));ctx.fill(tabX-1,tabY2,tabX,tabY2+TABH,withA(tc,(int)(10*glow)));ctx.fill(tabX+tabW,tabY2,tabX+tabW+1,tabY2+TABH,withA(tc,(int)(10*glow)));}
+            } else {
+                // Inactive: subtle tint + dim top line
+                ctx.fill(tabX,tabY2,tabX+tabW,tabY2+TABH,withA(tc,6));
+                ctx.fill(tabX,tabY2,tabX+tabW,tabY2+2,withA(tc,40));
             }
         }
 
@@ -478,6 +499,21 @@ public class ProfessorScreen extends Screen {
         if(ProxyManager.isEnabled()&&ProxyManager.count()>0){
             String px2="PROXY ON  ["+ProxyManager.aliveCount()+"/"+ProxyManager.count()+"]";
             ctx.drawText(textRenderer,px2,bpx+PW-textRenderer.getWidth(px2)-10,statusY,withA(GREEN,(int)(165+55*glow)),false);
+        }
+        // Module status dots — always visible
+        {
+            int dotX=bpx+8, dotY=statusY; int dotStep=0;
+            String[] mods={"AUTO-SWING","ANTI-AFK","NO-FALL","ANTI-KB"};
+            boolean[] mOn={XerionModules.autoSwing,XerionModules.antiAfk,XerionModules.noFallAlways,XerionModules.antiKbAlways};
+            int[] mCol={ORANGE,GREEN,CRYSTAL,PURPLE};
+            for(int i=0;i<mods.length;i++){
+                if(!mOn[i]) continue;
+                String ml="▶ "+mods[i];
+                ctx.fill(dotX-2,dotY-1,dotX+textRenderer.getWidth(ml)+2,dotY+9,withA(0xFF001830,180));
+                ctx.drawText(textRenderer,ml,dotX,dotY,withA(mCol[i],(int)(180+60*glow)),false);
+                dotX+=textRenderer.getWidth(ml)+8;
+                dotStep++;
+            }
         }
 
         super.render(ctx,mx,my,delta);
