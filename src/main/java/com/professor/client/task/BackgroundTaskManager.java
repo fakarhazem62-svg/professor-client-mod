@@ -11,14 +11,14 @@ public class BackgroundTaskManager {
         return t;
     });
 
-    private static final AtomicInteger    activeTasks     = new AtomicInteger(0);
-    private static final AtomicBoolean    cancelRequested = new AtomicBoolean(false);
-    private static volatile String        lastStatus      = "Idle";
-    private static volatile int           lastColor       = 0xFF88DDFF;
-    private static volatile long          packetsTotal    = 0;
-    private static volatile long          packetsSent     = 0;
+    private static final AtomicInteger activeTasks     = new AtomicInteger(0);
+    private static final AtomicBoolean cancelRequested = new AtomicBoolean(false);
+    private static volatile String     lastStatus      = "Idle";
+    private static volatile int        lastColor       = 0xFF88DDFF;
+    private static volatile long       packetsTotal    = 0;
+    private static volatile long       packetsSent     = 0;
 
-    /** Submit a background task. GUI can close; task keeps running. */
+    /** Submit a background task. GUI can close freely; task keeps running. */
     public static Future<?> submit(String name, Runnable task) {
         cancelRequested.set(false);
         activeTasks.incrementAndGet();
@@ -26,29 +26,27 @@ public class BackgroundTaskManager {
         return POOL.submit(() -> {
             try {
                 task.run();
-                setStatus("✓ " + name + " — complete", 0xFF00FF99);
+                setStatus("✓ " + name + " — done", 0xFF00FF99);
             } catch (Exception e) {
                 setStatus("✗ " + name + " — error", 0xFFFF2244);
             } finally {
-                if (activeTasks.decrementAndGet() == 0 && !cancelRequested.get())
-                    setStatus("✓ All tasks done", 0xFF00FF99);
+                activeTasks.decrementAndGet();
             }
         });
     }
 
-    /** Cancel all running background tasks. */
+    /** Request cancellation — does NOT destroy the pool (tasks can still be submitted later). */
     public static void cancelAll() {
         cancelRequested.set(true);
-        POOL.shutdownNow();
         activeTasks.set(0);
         setStatus("⛔ Cancelled", 0xFFFF2244);
     }
 
-    public static boolean isCancelled()   { return cancelRequested.get(); }
-    public static int     getActive()     { return activeTasks.get(); }
-    public static boolean isIdle()        { return activeTasks.get() == 0; }
-    public static String  getStatus()     { return lastStatus; }
-    public static int     getStatusColor(){ return lastColor; }
+    public static boolean isCancelled()    { return cancelRequested.get(); }
+    public static int     getActive()      { return activeTasks.get(); }
+    public static boolean isIdle()         { return activeTasks.get() == 0; }
+    public static String  getStatus()      { return lastStatus; }
+    public static int     getStatusColor() { return lastColor; }
 
     public static void setPacketProgress(long sent, long total) {
         packetsSent  = sent;
@@ -59,6 +57,8 @@ public class BackgroundTaskManager {
 
     private static void setStatus(String s, int c) { lastStatus = s; lastColor = c; }
 
-    /** Check from inside a task whether cancellation was requested. */
-    public static boolean shouldStop() { return cancelRequested.get() || Thread.currentThread().isInterrupted(); }
+    /** Call inside a background task to check if cancellation was requested. */
+    public static boolean shouldStop() {
+        return cancelRequested.get() || Thread.currentThread().isInterrupted();
+    }
 }
