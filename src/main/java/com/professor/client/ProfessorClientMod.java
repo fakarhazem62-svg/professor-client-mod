@@ -31,8 +31,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class ProfessorClientMod implements ClientModInitializer {
 
     public static KeyBinding openGuiKey;
-    public static final String MOD_ID    = "professorclient";
+    public static final String MOD_ID      = "professorclient";
     public static final String CLIENT_NAME = "Xerion Client";
+    public static final String VERSION     = "v1";
 
     // ── Last server info (needed for auto-reconnect) ──────────────────────
     public static volatile String lastServerHost = "";
@@ -162,8 +163,6 @@ public class ProfessorClientMod implements ClientModInitializer {
     }
 
     // ── Reconnect to last server via reflection (avoids ConnectScreen import) ─
-    // ConnectScreen is in net.minecraft.client.gui.screen but Yarn mapping name
-    // varies; reflection finds it regardless of what it's called at runtime.
     private static void doReconnect(MinecraftClient client) {
         if (lastServerHost.isEmpty()) return;
         try {
@@ -175,7 +174,6 @@ public class ProfessorClientMod implements ClientModInitializer {
 
             Screen parent = new XerionTitleScreen();
 
-            // Try every known class name / package for ConnectScreen across MC versions
             String[] candidates = {
                 "net.minecraft.client.gui.screen.ConnectScreen",
                 "net.minecraft.client.gui.screen.multiplayer.ConnectScreen",
@@ -188,7 +186,6 @@ public class ProfessorClientMod implements ClientModInitializer {
                         if (Modifier.isStatic(m.getModifiers()) &&
                             (m.getName().equals("connect") || m.getName().startsWith("method_"))) {
                             try {
-                                // Try 6-arg signature (most common in 1.21.x)
                                 m.invoke(null, parent, client, addr, info, false, null);
                                 ExploitLogger.success("RECONNECT",
                                     "Connected via " + cls + "#" + m.getName());
@@ -199,7 +196,6 @@ public class ProfessorClientMod implements ClientModInitializer {
                 } catch (ClassNotFoundException ignored) {}
             }
 
-            // Fallback: go to Xerion title screen (user sees reconnect button)
             XerionTitleScreen.pendingReconnect = true;
             XerionTitleScreen.pendingReconnectAddress = lastServerHost + ":" + lastServerPort;
             XerionTitleScreen.pendingReconnectName    = lastServerName;
@@ -235,7 +231,6 @@ public class ProfessorClientMod implements ClientModInitializer {
     public static void queuePacket(Packet<?> pkt) { PACKET_QUEUE.offer(pkt); }
     public static void clearQueue()               { PACKET_QUEUE.clear(); }
 
-    /** Swing rate-limiter respecting ExploitFixer 100ms cooldown */
     public static boolean canSwing() {
         long now = System.currentTimeMillis();
         if (now - lastSwingMs >= SWING_COOLDOWN_MS) { lastSwingMs = now; return true; }
