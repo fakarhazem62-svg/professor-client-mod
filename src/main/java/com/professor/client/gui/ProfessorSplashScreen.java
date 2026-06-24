@@ -1,6 +1,5 @@
 package com.professor.client.gui;
 
-import com.professor.client.ProfessorClientMod;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
@@ -9,324 +8,261 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 @Environment(EnvType.CLIENT)
 public class ProfessorSplashScreen extends Screen {
 
-    // ══ ICE PALETTE ═══════════════════════════════════════════════════════
-    private static final int BG       = 0xFF010A14;
-    private static final int PANEL_BG = 0xFF041828;
-    private static final int BORDER   = 0xFFAAEEFF;
-    private static final int BORDER2  = 0xFF55CCFF;
-    private static final int TITLE1   = 0xFFEEF8FF;
-    private static final int TITLE2   = 0xFFFFD700;
-    private static final int TXT_ICE  = 0xFF88DDFF;
-    private static final int TXT_DIM  = 0xFF4488AA;
-    private static final int SNOW_A   = 0xFFFFFFFF;
-    private static final int SNOW_B   = 0xFFCCEEFF;
-    private static final int GRID_C   = 0xFF0A2A44;
-    private static final int GOLD     = 0xFFFFD700;
-    private static final int CRYSTAL  = 0xFF00CCEE;
-    private static final int GREEN    = 0xFF00FF99;
-
     private static final Random RNG = new Random();
 
-    // State
-    private float   loadProgress = 0f;
-    private int     msgIdx       = 0;
-    private boolean done         = false;
-    private int     doneTimer    = 0;
-    private float   fadeIn       = 0f;
-    private float   fadeOut      = 0f;
-    private int     tick         = 0;
-    private float   glow         = 0f;
-    private boolean glowUp       = true;
-    private float   hue          = 0f;
-    private float   crystalSpin  = 0f;
+    // ─── State ────────────────────────────────────────────────────────────
+    private int   ticks        = 0;
+    private float load         = 0f;
+    private int   msgIdx       = 0;
+    private boolean done       = false;
+    private int   doneTimer    = 0;
+    private float fadeIn       = 0f;
+    private float fadeOut      = 0f;
+    private float glow         = 0f;
+    private boolean glowUp     = true;
+    private float scan         = 0f, scan2 = 0f;
 
-    // Snow
-    private static final int SNOW_COUNT = 250;
-    private final float[] sx  = new float[SNOW_COUNT];
-    private final float[] sy  = new float[SNOW_COUNT];
-    private final float[] ssp = new float[SNOW_COUNT];
-    private final float[] ssz = new float[SNOW_COUNT];
-    private final float[] sal = new float[SNOW_COUNT];
-    private final float[] sph = new float[SNOW_COUNT];
+    // ─── Particles [x,y,vx,vy,sz,alpha,phase,type] ────────────────────────
+    private final List<float[]> particles = new ArrayList<>();
+    // ─── Data streams [x,y,speed,char] ────────────────────────────────────
+    private final List<float[]> streams   = new ArrayList<>();
+    // ─── Orbs [x,y,vx,vy,sz,alpha,phase,type] ────────────────────────────
+    private final List<float[]> orbs      = new ArrayList<>();
 
-    // Sparkles
-    private static final int SPARK_COUNT = 70;
-    private final float[] gpx = new float[SPARK_COUNT];
-    private final float[] gpy = new float[SPARK_COUNT];
-    private final float[] gpp = new float[SPARK_COUNT];
-    private final float[] gps = new float[SPARK_COUNT];
+    private static final int   CYAN   = 0x00F5FF;
+    private static final int   PURPLE = 0x9B00FF;
+    private static final int   GOLD   = 0xFFD700;
+    private static final int   RED    = 0xFF2200;
+    private static final int   GREEN  = 0x00FF88;
 
-    // Data stream
-    private static final int    COL_COUNT = 55;
-    private final float[] cx2 = new float[COL_COUNT];
-    private final float[] cy2 = new float[COL_COUNT];
-    private final float[] csp = new float[COL_COUNT];
-    private final int[]   cch = new int[COL_COUNT];
-    private static final String CHARS = "XERION01FROST10BYPASS00ICE11CLIENT";
+    private static final String CHARS = "PROFESSOR01AKASATANA10110100";
 
-    // Pulse rings
-    private final float[] ringR  = {8f, 50f, 100f, 160f, 220f};
-    private final float[] ringSp = {1.8f, 1.3f, 0.9f, 0.65f, 0.45f};
-
-    private static final String[] MESSAGES = {
-        "Initializing Xerion Client  v4.0…",
-        "Loading frost modules…  [✓]",
-        "Calibrating bypass engine…  [✓]",
-        "Injecting packet hooks…  [✓]",
-        "Loading proxy manager…  [✓]",
-        "Applying ice theme…  [✓]",
-        "❄  All systems ready.  Welcome, operator.  ❄"
+    private static final String[] MSGS = {
+        "Initializing Professor Client v5.0...",
+        "Loading exploit modules...",
+        "Injecting packet hooks...",
+        "Calibrating ExploitFixer bypass...",
+        "Loading GUI components...",
+        "Mounting Silhouette audio...",
+        "All systems ready.  ExploitFixer: BYPASSED."
     };
 
-    public ProfessorSplashScreen() { super(Text.literal("Xerion Client")); }
+    public ProfessorSplashScreen() { super(Text.literal("Professor Client")); }
 
+    @Override protected void init()         { initFx(); }
+    @Override public boolean shouldPause()  { return false; }
     @Override public boolean shouldCloseOnEsc() { return false; }
-    @Override public boolean shouldPause()      { return false; }
 
-    @Override
-    protected void init() {
-        int W = width, H = height;
-        for (int i = 0; i < SNOW_COUNT; i++) {
-            sx[i]  = RNG.nextFloat() * W; sy[i]  = RNG.nextFloat() * H;
-            ssp[i] = RNG.nextFloat() * 0.8f + 0.22f;
-            ssz[i] = RNG.nextFloat() * 4.5f + 1f;
-            sal[i] = RNG.nextFloat() * 0.7f + 0.28f;
-            sph[i] = RNG.nextFloat() * 6.28f;
+    // ─── Init ─────────────────────────────────────────────────────────────
+
+    private void initFx() {
+        particles.clear(); streams.clear(); orbs.clear();
+
+        for (int i = 0; i < 300; i++) {
+            particles.add(new float[]{
+                RNG.nextFloat()*width,  RNG.nextFloat()*height,
+                (RNG.nextFloat()-0.5f)*0.6f, -(RNG.nextFloat()*0.8f+0.1f),
+                RNG.nextFloat()*3f+0.5f, RNG.nextFloat()*0.9f+0.1f,
+                RNG.nextFloat()*6.28f,  RNG.nextInt(5)
+            });
         }
-        for (int i = 0; i < SPARK_COUNT; i++) {
-            gpx[i] = RNG.nextFloat() * W; gpy[i] = RNG.nextFloat() * H;
-            gpp[i] = RNG.nextFloat() * 6.28f; gps[i] = RNG.nextFloat() * 3.5f + 1f;
+
+        int cols = Math.max(1, width/14);
+        for (int i = 0; i < cols; i++) {
+            streams.add(new float[]{
+                i*14+7f, RNG.nextFloat()*-height,
+                RNG.nextFloat()*1.5f+0.4f, RNG.nextInt(CHARS.length())
+            });
         }
-        int cols = Math.max(1, W / 14);
-        for (int i = 0; i < Math.min(COL_COUNT, cols); i++) {
-            cx2[i] = i * (W / (float)Math.min(COL_COUNT, cols)) + 7;
-            cy2[i] = RNG.nextFloat() * -H;
-            csp[i] = RNG.nextFloat() * 1.4f + 0.3f;
-            cch[i] = RNG.nextInt(CHARS.length());
+
+        for (int i = 0; i < 18; i++) {
+            orbs.add(new float[]{
+                RNG.nextFloat()*width, RNG.nextFloat()*height,
+                (RNG.nextFloat()-0.5f)*0.28f, (RNG.nextFloat()-0.5f)*0.28f,
+                RNG.nextFloat()*70f+20f, RNG.nextFloat()*0.4f+0.2f,
+                RNG.nextFloat()*6.28f,  RNG.nextInt(4)
+            });
         }
     }
 
-    @Override
-    public void tick() {
-        tick++;
-        fadeIn = Math.min(1f, fadeIn + 0.055f);
-        hue    = (hue + 0.004f) % 1f;
-        crystalSpin += 0.018f;
+    // ─── Tick ─────────────────────────────────────────────────────────────
 
-        if (loadProgress < 100f) {
-            float spd = loadProgress < 25 ? 0.55f : loadProgress < 65 ? 0.38f : 0.20f;
-            loadProgress = Math.min(100f, loadProgress + spd);
-            msgIdx = Math.min(MESSAGES.length - 1, (int)(loadProgress / 100f * MESSAGES.length));
+    @Override public void tick() {
+        ticks++;
+
+        fadeIn = Math.min(1f, fadeIn + 0.055f);
+
+        if (load < 100f) {
+            load = Math.min(load + (load < 30 ? 0.55f : load < 70 ? 0.38f : 0.26f), 100f);
+            msgIdx = Math.min((int)(load/100f*(MSGS.length-1)), MSGS.length-1);
         } else if (!done) { done = true; }
 
         if (done) {
             doneTimer++;
-            if (doneTimer > 50) {
-                fadeOut = Math.min(1f, fadeOut + 0.040f);
+            if (doneTimer > 60) {
+                fadeOut = Math.min(1f, fadeOut + 0.04f);
                 if (fadeOut >= 1f) MinecraftClient.getInstance().setScreen(null);
             }
         }
 
-        glow += glowUp ? 0.030f : -0.030f;
+        glow += glowUp ? 0.032f : -0.032f;
         if (glow >= 1f) { glow = 1f; glowUp = false; }
         else if (glow <= 0f) { glow = 0f; glowUp = true; }
 
-        float drift = tick * 0.011f;
-        for (int i = 0; i < SNOW_COUNT; i++) {
-            sy[i] += ssp[i]; sx[i] += MathHelper.sin(drift + sph[i]) * 0.42f; sph[i] += 0.008f;
-            if (sy[i] > height + 6) { sy[i] = -6; sx[i] = RNG.nextFloat() * width; }
-            if (sx[i] < -6) sx[i] = width + 5;
-            if (sx[i] > width + 5) sx[i] = -6;
+        scan  = (scan  + 2.5f) % height;
+        scan2 = (scan2 + 1.5f) % height;
+
+        for (float[] p : particles) {
+            p[0]+=p[2]; p[1]+=p[3]; p[6]+=0.048f;
+            if (p[1]<-10){p[1]=height+5;p[0]=RNG.nextFloat()*width;}
+            if (p[0]<0)p[0]=width; if (p[0]>width)p[0]=0;
         }
-        for (int i = 0; i < SPARK_COUNT; i++) gpp[i] += 0.058f;
-        for (int i = 0; i < ringR.length; i++) {
-            ringR[i] += ringSp[i];
-            if (ringR[i] > Math.max(width, height) * 0.85f) ringR[i] = 8f;
+        for (float[] s : streams) {
+            s[1]+=s[2];
+            if (s[1]>height+20){s[1]=-24;s[3]=RNG.nextInt(CHARS.length());}
+            if (RNG.nextInt(20)==0) s[3]=RNG.nextInt(CHARS.length());
         }
-        for (int i = 0; i < COL_COUNT; i++) {
-            cy2[i] += csp[i];
-            if (cy2[i] > height + 20) { cy2[i] = -20; cch[i] = RNG.nextInt(CHARS.length()); }
-            if (RNG.nextInt(20) == 0) cch[i] = RNG.nextInt(CHARS.length());
+        for (float[] o : orbs) {
+            o[0]+=o[2]; o[1]+=o[3]; o[6]+=0.024f;
+            if (o[0]<0||o[0]>width) o[2]=-o[2];
+            if (o[1]<0||o[1]>height)o[3]=-o[3];
         }
     }
 
-    @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        float fade = fadeIn * (1f - fadeOut);
-        int   sa   = (int)(fade * 255);
-        if (sa <= 0) return;
+    // ─── Render ───────────────────────────────────────────────────────────
 
-        int W = width, H = height, pcx = W/2, pcy = H/2;
+    @Override public void render(DrawContext ctx, int mx, int my, float delta) {
+        float alpha = (1f - fadeOut) * fadeIn;
+        int sa = (int)(alpha * 255); if (sa <= 0) return;
 
-        // ── Background ────────────────────────────────────────────────────
-        ctx.fill(0, 0, W, H, BG);
-        for (int x = 0; x < W; x += 42) ctx.fill(x, 0, x+1, H, fade(GRID_C, sa));
-        for (int y = 0; y < H; y += 42) ctx.fill(0, y, W, y+1, fade(GRID_C, sa));
+        int W=width, H=height, cx=W/2, cy=H/2;
 
-        // Expanding pulse rings from center
-        for (int i = 0; i < ringR.length; i++) {
-            int r = (int)ringR[i]; if (r < 2) continue;
-            float ff = 1f - ringR[i] / (Math.max(W,H) * 0.85f);
-            int ra = (int)(ff * ff * 45 * sa / 255); if (ra <= 0) continue;
-            ctx.fill(pcx-r, pcy-1, pcx+r, pcy+1, withA(0xFF55CCFF, ra));
-            ctx.fill(pcx-1, pcy-r, pcx+1, pcy+r, withA(0xFF55CCFF, ra));
-        }
+        // Dark BG
+        ctx.fill(0,0,W,H,ab(0xFF06060C,sa));
 
-        // Data streams
-        for (int i = 0; i < COL_COUNT; i++) {
-            if (cy2[i] < 0) continue;
-            int a = (int)(60 * fade); if (a <= 0) continue;
-            ctx.drawText(textRenderer, String.valueOf(CHARS.charAt(cch[i])),
-                (int)cx2[i]-4, (int)cy2[i], withA(0xFF44AABB, a), false);
-        }
+        // Grid
+        int gc=ab(0x07000000|CYAN,sa);
+        for(int x=0;x<W;x+=50)ctx.fill(x,0,x+1,H,gc);
+        for(int y=0;y<H;y+=50)ctx.fill(0,y,W,y+1,gc);
 
-        // ── Snow ──────────────────────────────────────────────────────────
-        for (int i = 0; i < SNOW_COUNT; i++) {
-            float tw = (MathHelper.sin(sph[i]) + 1f) / 2f;
-            int a = (int)(sal[i] * (0.45f + 0.55f * tw) * 255 * fade);
-            if (a < 10) continue;
-            int sz  = (int)ssz[i];
-            int col = ssz[i] > 4f ? SNOW_A : ssz[i] > 2.8f ? SNOW_B : 0xFFAABBCC;
-            ctx.fill((int)sx[i], (int)sy[i], (int)sx[i]+sz, (int)sy[i]+sz, withA(col, a));
-            if (sz >= 3 && a > 110) ctx.fill((int)sx[i]+1,(int)sy[i]+1,(int)sx[i]+sz-1,(int)sy[i]+sz-1, withA(SNOW_A, Math.min(255, a+50)));
-        }
-        for (int i = 0; i < SPARK_COUNT; i++) {
-            float tw = (MathHelper.sin(gpp[i]) + 1f) / 2f;
-            if (tw < 0.58f) continue;
-            int a = (int)((tw - 0.58f) * 2.38f * 210 * fade); if (a < 18) continue;
-            int sz = (int)gps[i];
-            ctx.fill((int)gpx[i]-sz,(int)gpy[i],(int)gpx[i]+sz+1,(int)gpy[i]+1, withA(SNOW_A, a));
-            ctx.fill((int)gpx[i],(int)gpy[i]-sz,(int)gpx[i]+1,(int)gpy[i]+sz+1, withA(SNOW_A, a));
-        }
+        // Center radial glow
+        int[] radii={420,310,200,120,70},alphas={4,8,14,22,35};
+        for(int i=0;i<radii.length;i++){int a2=ab((int)(alphas[i]*(0.5f+0.5f*glow))<<24|CYAN,sa);ctx.fill(cx-radii[i],cy-radii[i]/2,cx+radii[i],cy+radii[i]/2,a2);}
 
-        // ── Panel ─────────────────────────────────────────────────────────
-        int pw = 460, ph = 295, px = pcx-pw/2, py = pcy-ph/2;
-        ctx.fill(px+15, py+15, px+pw+15, py+ph+15, fade(0xCC000000, sa));
-        ctx.fill(px+8,  py+8,  px+pw+8,  py+ph+8,  fade(0x55000000, sa));
-        ctx.fill(px, py, px+pw, py+ph, fade(PANEL_BG, sa));
-        for (int y = 0; y < 65; y++) {
-            int ga = (int)((1f - y/65f) * 20 * fade);
-            if (ga > 0) ctx.fill(px, py+y, px+pw, py+y+1, withA(0xAADDFF, ga));
-        }
+        // Orbs
+        for(float[] o:orbs){float tw=(MathHelper.sin(o[6])+1f)/2f;int a2=(int)(o[5]*tw*sa*0.25f);if(a2<=0)continue;int sz=(int)o[4];int c2=switch((int)o[7]){case 1->PURPLE;case 2->GOLD;case 3->RED;default->CYAN;};ctx.fill((int)o[0]-sz,(int)o[1]-sz/2,(int)o[0]+sz,(int)o[1]+sz/2,(a2<<24)|c2);}
 
-        // Border
-        int bA  = (int)((0.88f + 0.12f * glow) * 255 * fade);
-        int ogA = (int)(0.30f * glow * 255 * fade);
-        if (ogA > 0) {
-            ctx.fill(px-4, py-4, px+pw+4, py+1,     withA(BORDER, ogA));
-            ctx.fill(px-4, py+ph-1, px+pw+4, py+ph+4, withA(BORDER, ogA));
-            ctx.fill(px-4, py-4, px+1, py+ph+4,     withA(BORDER, ogA));
-            ctx.fill(px+pw-1, py-4, px+pw+4, py+ph+4, withA(BORDER, ogA));
-        }
-        ctx.fill(px,     py,      px+pw,   py+5,    withA(BORDER, bA));
-        ctx.fill(px,     py+ph-5, px+pw,   py+ph,   withA(BORDER, bA));
-        ctx.fill(px,     py,      px+5,    py+ph,   withA(BORDER, bA));
-        ctx.fill(px+pw-5,py,      px+pw,   py+ph,   withA(BORDER, bA));
-        // Inner highlight
-        int ihA = (int)(0.42f * 255 * fade);
-        ctx.fill(px+5, py+5, px+pw-5, py+6,       withA(TITLE1, ihA));
-        ctx.fill(px+5, py+ph-6, px+pw-5, py+ph-5, withA(TITLE1, ihA));
+        // Streams
+        for(float[] s:streams){if(s[1]<0)continue;int hA=(int)((55+45*glow)*sa/255);ctx.drawText(textRenderer,String.valueOf(CHARS.charAt((int)s[3])),(int)s[0]-4,(int)s[1],(Math.min(255,hA*2)<<24)|CYAN,false);if(s[1]>14)ctx.drawText(textRenderer,String.valueOf(CHARS.charAt((int)s[3])),(int)s[0]-4,(int)s[1]-14,(hA<<24)|0x003344,false);}
+
+        // Particles
+        for(float[] p:particles){float tw=(MathHelper.sin(p[6])+1f)/2f;int a2=(int)(p[5]*tw*sa);if(a2<8)continue;boolean big=p[4]>2f;int col=switch((int)p[7]){case 1->(a2<<24)|(big?PURPLE:0x220033);case 2->(a2<<24)|(big?GOLD:0x443300);case 3->(a2<<24)|(big?RED:0x330000);case 4->(a2<<24)|(big?GREEN:0x003311);default->(a2<<24)|(big?CYAN:0x003344);};int sz=p[4]>2.5f?2:1;ctx.fill((int)p[0],(int)p[1],(int)p[0]+sz,(int)p[1]+sz,col);}
+
+        // Scanlines
+        int slA=(int)(0x0D*sa/255);
+        if(slA>0){ctx.fill(0,(int)scan,W,(int)scan+2,(slA<<24)|0xFFFFFF);ctx.fill(0,(int)scan2,W,(int)scan2+1,(slA/2<<24)|0xFFFFFF);}
+
+        // Panel
+        drawPanel(ctx, cx, cy, sa);
+        super.render(ctx, mx, my, delta);
+    }
+
+    // ─── Panel ────────────────────────────────────────────────────────────
+
+    private void drawPanel(DrawContext ctx, int cx, int cy, int sa) {
+        int pw=380, ph=260;
+        int px=cx-pw/2, py=cy-ph/2;
+
+        // Shadow
+        ctx.fill(px+10,py+10,px+pw+10,py+ph+10,ab(0x77000000,sa));
+        ctx.fill(px+5, py+5, px+pw+5, py+ph+5, ab(0x33000000,sa));
+
+        // Panel BG
+        ctx.fill(px,py,px+pw,py+ph,ab(0xF20A0A18,sa));
+
+        // Animated hue border
+        float t=ticks*0.04f;
+        int bR=(int)(Math.abs(Math.sin(t))*155);
+        int bG=Math.max(0,Math.min(255,(int)(180+75*Math.sin(t+2.1))));
+        int bB=Math.max(0,Math.min(255,(int)(240+15*Math.sin(t+4.2))));
+        int bA=(int)((0.65f+0.35f*glow)*sa);
+        int bc=(bA<<24)|(bR<<16)|(bG<<8)|bB;
+        int bc2=((bA/4)<<24)|(bR<<16)|(bG<<8)|bB;
+        ctx.fill(px,py,px+pw,py+2,bc);ctx.fill(px,py+ph-2,px+pw,py+ph,bc);
+        ctx.fill(px,py,px+2,py+ph,bc);ctx.fill(px+pw-2,py,px+pw,py+ph,bc);
+        ctx.fill(px+2,py+2,px+pw-2,py+3,bc2);ctx.fill(px+2,py+ph-3,px+pw-2,py+ph-2,bc2);
+
         // Gold corners
-        int gcA = (int)(0.95f * 255 * fade);
-        drawCorner(ctx, px, py, px+pw, py+ph, 32, withA(GOLD, gcA));
-        // Crystal shards at corners
-        int csA = (int)(140 * fade);
-        drawShard(ctx, px+5,      py+5,      withA(CRYSTAL, csA));
-        drawShard(ctx, px+pw-14,  py+5,      withA(CRYSTAL, csA));
-        drawShard(ctx, px+5,      py+ph-18,  withA(CRYSTAL, csA));
-        drawShard(ctx, px+pw-14,  py+ph-18,  withA(CRYSTAL, csA));
+        int gcA=(int)(0xEE*sa/255); int gc=(gcA<<24)|GOLD; int cs=22;
+        ctx.fill(px,py,px+cs,py+3,gc);ctx.fill(px,py,px+3,py+cs,gc);
+        ctx.fill(px+pw-cs,py,px+pw,py+3,gc);ctx.fill(px+pw-3,py,px+pw,py+cs,gc);
+        ctx.fill(px,py+ph-3,px+cs,py+ph,gc);ctx.fill(px,py+ph-cs,px+3,py+ph,gc);
+        ctx.fill(px+pw-cs,py+ph-3,px+pw,py+ph,gc);ctx.fill(px+pw-3,py+ph-cs,px+pw,py+ph,gc);
 
-        // ── Title ─────────────────────────────────────────────────────────
-        int ty = py + 28;
-        String t1 = "XERION", t2 = " CLIENT";
-        int tw1 = textRenderer.getWidth(t1), tw2 = textRenderer.getWidth(t2);
-        int startX = pcx - (tw1+tw2)/2;
-        // Glow halo
-        int gA = (int)((55 + 40 * glow) * fade);
-        for (int d = -5; d <= 5; d++) {
-            int g2 = Math.max(0, gA - Math.abs(d) * 8);
-            if (g2 > 0) { ctx.drawText(textRenderer, t1+t2, startX+d, ty, withA(0x00CCFF, g2), false);
-                          ctx.drawText(textRenderer, t1+t2, startX, ty+d, withA(0x00CCFF, g2), false); }
-        }
-        int tA = (int)((225 + 30 * glow) * fade);
-        ctx.drawText(textRenderer, t1, startX,       ty, withA(TITLE1, tA), false);
-        ctx.drawText(textRenderer, t2, startX + tw1, ty, withA(TITLE2, tA), false);
+        // ── Title ──
+        String t1="PROFESSOR", t2=" CLIENT";
+        int tw1=textRenderer.getWidth(t1),tw2=textRenderer.getWidth(t2);
+        int startX=cx-(tw1+tw2)/2, ty=py+28;
+        int gA=(int)((32+24*glow)*sa/255);
+        for(int dx=-5;dx<=5;dx++){int g2=Math.max(0,gA-Math.abs(dx)*6);if(g2<=0)continue;ctx.drawText(textRenderer,t1+t2,cx-(tw1+tw2)/2+dx,ty,(g2<<24)|CYAN,false);ctx.drawText(textRenderer,t1+t2,cx-(tw1+tw2)/2,ty+dx,(g2<<24)|CYAN,false);}
+        int tA=(int)((210+45*glow)*sa/255);
+        ctx.drawText(textRenderer,t1,startX,ty,(tA<<24)|CYAN,false);
+        ctx.drawText(textRenderer,t2,startX+tw1,ty,(tA<<24)|GOLD,false);
 
-        // Subtitle
-        String sub = "❄  Frost Edition  " + ProfessorClientMod.VERSION + "  ·  Fabric 1.21.1  ❄";
-        int sA = (int)((155 + 60 * glow) * fade);
-        ctx.drawText(textRenderer, sub, pcx - textRenderer.getWidth(sub)/2, ty+13, withA(CRYSTAL, sA), false);
+        String sub="v5.0  |  ExploitFixer Bypass  |  Unlimited Packets";
+        int sA=(int)((110+60*glow)*sa/255);
+        ctx.drawText(textRenderer,sub,cx-textRenderer.getWidth(sub)/2,ty+14,(sA<<24)|PURPLE,false);
 
-        // Divider
-        ctx.fill(px+28, py+50, px+pw-28, py+51, withA(BORDER2, (int)(115 * fade)));
+        // Gold divider
+        ctx.fill(px+32,py+52,px+pw-32,py+53,(int)(0x55*sa/255)<<24|GOLD);
 
-        // ── Progress bar ──────────────────────────────────────────────────
-        int barX = px+32, barY = py+75, barW = pw-64, barH = 13;
-        String pct = (int)loadProgress + "%";
-        ctx.drawText(textRenderer, pct, pcx - textRenderer.getWidth(pct)/2, barY-16, withA(TITLE1, (int)(240*fade)), false);
+        // ── Progress bar ──
+        int barX=px+30,barY=py+72,barW=pw-60,barH=9;
+        String pct=(int)load+"%";
+        ctx.drawText(textRenderer,pct,cx-textRenderer.getWidth(pct)/2,barY-14,(int)(210*sa/255)<<24|CYAN,false);
 
-        ctx.fill(barX-2, barY-2, barX+barW+2, barY+barH+2, withA(BORDER, (int)(145*fade)));
-        ctx.fill(barX, barY, barX+barW, barY+barH, fade(0xFF010E1E, sa));
+        ctx.fill(barX-1,barY-1,barX+barW+1,barY+barH+1,(int)(0x44*sa/255)<<24|CYAN);
+        ctx.fill(barX,barY,barX+barW,barY+barH,0x1A000000);
 
-        int fillW = (int)(barW * loadProgress / 100f);
-        for (int xi = 0; xi < fillW; xi++) {
-            float fr = (float)xi / barW;
-            int r = (int)MathHelper.lerp(fr, 8f, 160f);
-            int g = (int)MathHelper.lerp(fr, 75f, 230f);
-            ctx.fill(barX+xi, barY, barX+xi+1, barY+barH, 0xFF000000|(r<<16)|(g<<8)|255);
-        }
-        if (fillW > 4) {
-            int capA = (int)((185 + 70 * glow) * fade);
-            ctx.fill(barX+fillW-6, barY-2, barX+fillW+6, barY+barH+2, withA(TITLE1, capA));
-        }
-        for (int s = 1; s < 28; s++) { int sx2 = barX + barW*s/28; ctx.fill(sx2, barY, sx2+1, barY+barH, fade(0x22000000, sa)); }
-
-        // Block tiles
-        int tileY = barY + barH + 6;
-        int tiles = 32, tileW = (barW - tiles + 1) / tiles;
-        for (int i = 0; i < tiles; i++) {
-            int txp = barX + i*(tileW+1);
-            boolean filled = i < (int)(loadProgress / 100f * tiles);
-            ctx.fill(txp, tileY, txp+tileW, tileY+5, withA(filled ? BORDER2 : 0xFF335566, (int)((filled?200:22)*fade)));
+        int fw=(int)(barW*load/100f);
+        if(fw>0){
+            for(int xi=0;xi<fw;xi++){float frac=(float)xi/barW;int r=(int)(155*(1-frac)),g=(int)(245*frac);ctx.fill(barX+xi,barY,barX+xi+1,barY+barH,0xFF000000|(r<<16)|(g<<8)|255);}
+            int gcA2=(int)(130*glow*sa/255);
+            ctx.fill(barX+fw-6,barY-2,barX+fw+2,barY+barH+2,(gcA2<<24)|CYAN);
         }
 
-        // Status message
-        String msg = MESSAGES[msgIdx];
-        ctx.drawText(textRenderer, msg, pcx - textRenderer.getWidth(msg)/2, tileY+10, withA(TXT_ICE, (int)((200+55*glow)*fade)), false);
+        // Tile segments
+        int tileY=barY+barH+5,tiles=30,tw=(barW-tiles+1)/tiles;
+        for(int i=0;i<tiles;i++){int txp=barX+i*(tw+1);boolean filled=i<(int)(load/100f*tiles);int tcA=(int)((filled?0xCC:0x14)*sa/255);ctx.fill(txp,tileY,txp+tw,tileY+3,(tcA<<24)|(filled?CYAN:0xFFFFFF));}
 
-        // READY blink
-        if (done && doneTimer % 20 < 10) {
-            String ready = ">>>  ❄  READY  ❄  <<<";
-            ctx.drawText(textRenderer, ready, pcx - textRenderer.getWidth(ready)/2, tileY+24, withA(GOLD, (int)(245*fade)), false);
-        }
+        // Message
+        String msg=MSGS[msgIdx];
+        ctx.drawText(textRenderer,msg,cx-textRenderer.getWidth(msg)/2,tileY+9,(int)((140+80*glow)*sa/255)<<24|0xAAFFFF,false);
 
-        // Footer
-        ctx.fill(px+28, py+ph-22, px+pw-28, py+ph-21, withA(BORDER2, (int)(55*fade)));
-        String copy = ProfessorClientMod.CLIENT_NAME + "  " + ProfessorClientMod.VERSION + "  ❄  Frost Fabric Edition  ❄  1.21.1";
-        ctx.drawText(textRenderer, copy, pcx - textRenderer.getWidth(copy)/2, py+ph-14, withA(TXT_DIM, (int)(115*fade)), false);
+        // EF bypass line
+        String ef="ExploitFixer: BYPASSED";
+        ctx.drawText(textRenderer,ef,cx-textRenderer.getWidth(ef)/2,tileY+20,(int)((ticks%20<12?160+70*glow:0)*sa/255)<<24|GREEN,false);
 
-        super.render(ctx, mouseX, mouseY, delta);
+        // READY flash
+        if(done&&doneTimer%20<10){String r=">>> READY <<<";ctx.drawText(textRenderer,r,cx-textRenderer.getWidth(r)/2,tileY+32,(int)(220*sa/255)<<24|GOLD,false);}
+
+        // Bottom divider + copyright
+        ctx.fill(px+32,py+ph-26,px+pw-32,py+ph-25,(int)(0x33*sa/255)<<24|CYAN);
+        String copy="(c) Professor Client  --  Elite Fabric 1.21.1  |  EF Bypass Active";
+        ctx.drawText(textRenderer,copy,cx-textRenderer.getWidth(copy)/2,py+ph-16,(int)(70*sa/255)<<24|PURPLE,false);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
-    private static int withA(int rgb, int a) { return (Math.max(0,Math.min(255,a))<<24)|(rgb&0x00FFFFFF); }
-    private static int fade(int argb, int sa) { int ba=(argb>>>24)&0xFF; return withA(argb, ba*sa/255); }
-    private static void drawCorner(DrawContext ctx, int x1, int y1, int x2, int y2, int cs, int col) {
-        ctx.fill(x1,y1,x1+cs,y1+5,col); ctx.fill(x1,y1,x1+5,y1+cs,col);
-        ctx.fill(x2-cs,y1,x2,y1+5,col); ctx.fill(x2-5,y1,x2,y1+cs,col);
-        ctx.fill(x1,y2-5,x1+cs,y2,col); ctx.fill(x1,y2-cs,x1+5,y2,col);
-        ctx.fill(x2-cs,y2-5,x2,y2,col); ctx.fill(x2-5,y2-cs,x2,y2,col);
-    }
-    private static void drawShard(DrawContext ctx, int x, int y, int col) {
-        ctx.fill(x+3,y,   x+5,y+2,  col);
-        ctx.fill(x+2,y+2, x+6,y+4,  col);
-        ctx.fill(x+1,y+4, x+7,y+6,  col);
-        ctx.fill(x+2,y+6, x+6,y+8,  col);
-        ctx.fill(x+3,y+8, x+5,y+10, col);
+    // ─── Util ─────────────────────────────────────────────────────────────
+
+    private int ab(int color, int sa) {
+        int baseA=(color>>>24)&0xFF;
+        return (Math.min(255,baseA*sa/255)<<24)|(color&0x00FFFFFF);
     }
 }
